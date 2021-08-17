@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+
+# The name of the current directory is the name of the Lambda function
+export name=${PWD##*/}
+
+# Run the manage script in the parent directory
+(cd .. && ./manage $@)

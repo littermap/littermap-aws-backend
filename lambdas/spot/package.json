@@ -1,0 +1,9 @@
+{
+  "name": "littermap-lambda-spot",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "./manage build",
+    "deploy": "./manage deploy"
+  }
+}

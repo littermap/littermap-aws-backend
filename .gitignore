@@ -1,0 +1,4 @@
+**/node_modules/
+lambdas/*/yarn.lock
+config
+*.zip
