@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+
+echo Preparing configuration files
+echo
+
+cp -v .config-templates/* .
+
+echo
+echo Configure your AWS account information by running: aws configure

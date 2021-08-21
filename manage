@@ -1,0 +1,65 @@
+#!/usr/bin/env sh
+
+region=$(aws configure get region)
+
+if [[ $region == "" ]] ; then
+  echo "Please configure your AWS deployment region by running: aws configure"
+  exit
+fi
+
+nargs=$#
+
+if [[ nargs -eq 0 ]]; then
+  echo "Available commmands (look inside the script to get a better idea of what they do):"
+  echo
+
+  # Finds the commands in the code of this script
+  grep -o '"[^"]\+" '$'\051' $0 | cut -d\" -f 2
+
+  exit
+fi
+
+args () {
+  if [[ $(($nargs-1)) -lt $1 ]]; then
+    echo "This command requires $1 argument(s)"
+    exit
+  fi
+}
+
+case $1 in
+  "list-lambdas" )
+    aws lambda list-functions --output json
+    ;;
+
+  "list-apis" )
+    aws apigateway get-rest-apis --output json
+    ;;
+
+  "list-api-urls" )
+    apis=$(./$0 list-apis | jq -r ".items[].id")
+
+    for api in $apis ; do
+      for stage in $(aws apigateway get-stages --rest-api-id $api | jq -r ".item[].stageName"); do
+        echo https://$api.execute-api.$region.amazonaws.com/$stage/
+      done
+    done
+    ;;
+
+  "list-stacks" )
+    aws cloudformation describe-stacks --output json
+    ;;
+
+  "build-lambda" )
+    args 1
+    (cd lambdas/$2 ; rm -fv lambda.zip ; zip -r lambda.zip node_modules *.js)
+    ;;
+
+  "deploy-lambda" )
+    args 1
+    aws lambda update-function-code --function-name $2 --zip-file fileb://lambdas/$2/lambda.zip
+    ;;
+
+  * )
+    echo "Command $1 not available"
+    ;;
+esac

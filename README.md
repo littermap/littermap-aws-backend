@@ -4,35 +4,56 @@ Serverless cloud back-end for the [Litter Map](https://github.com/earthstewards/
 
 - [Amazon API Gateway](https://aws.amazon.com/api-gateway/) API endpoints
 - [AWS Lambda](https://aws.amazon.com/lambda/) back-end logic
+- Deployment with [AWS CloudFormation](https://aws.amazon.com/cloudformation/)
 
 ## Requirements
 
-- [aws-cli](https://aws.amazon.com/cli/) (configured with your account: `aws configure`)
-- [jq](https://stedolan.github.io/jq/) command-line JSON processor
+- [aws-cli](https://aws.amazon.com/cli/)
+- [sam-cli](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html) (1.29.0 or later)
+- [jq](https://stedolan.github.io/jq/) command-line JSON processor (for certain commands provided by the `manage` script)
 
 ## How to deploy
 
-Make a copy of `config-example` and name it `config`, and inside it configure your AWS account information and [deployment region](https://aws.amazon.com/about-aws/global-infrastructure/regions_az/).
+First install the [requirements](#Requirements).
 
-Inside the `lambdas/spot/` directory, build the lambda deployment package with:
+If this is a fresh clone of this source code repository, prepare the configuration files by running:
 
-- `./manage build`
+- `./prepare`
 
-Upload the lambda function to the AWS cloud with:
+Configure the aws-cli utility with your AWS [account information](https://console.aws.amazon.com/iam/) and [deployment region](https://aws.amazon.com/about-aws/global-infrastructure/regions_az/) by running:
 
-- `./manage create`
+- `aws configure`
 
-Set up the API gateway in the AWS cloud and deploy a `dev` stage of the API with:
+Package the lambda for deployment:
 
-- `./manage setup-gateway`
+- `./manage build-lambda spot`
 
-The management script prints the AWS commands that are being executed along with the responses from the service to be transparent. The lambda should now be in the Amazon cloud behind a gateway, and ready to be invoked via the URL returned by the last command.
+Prepare the stack for deployment:
 
-## Administrative and development workflow
+- `sam build` ([what this does](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-build.html))
 
-The commands in the `manage` script serve as a toolkit to manage the AWS deployment. New releases of the lambda can be deployed with `./manage deploy`.
+Deploy the stack:
 
-All of the functions supported by the `aws` command line utility can also be used to interact wit the AWS service suite.
+- `sam deploy --guided` ([what this does](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-deploy.html))
+
+If you would like an introduction to how this kind of deployment works, watch this excellent [introduction video](https://youtu.be/MipjLaTp5nA).
+
+## How to undeploy this service from the cloud:
+
+To take this service down, run:
+
+- `sam delete --stack-name littermap-backend` ([what this does](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-delete.html))
+
+## Development
+
+To deploy a new version of the lambda function, run:
+
+- `./manage build-lambda spot`
+- `sam deploy`
+
+To see which API endpoints are deployed:
+
+- `./manage list-api-urls`
 
 ## Knowledge resources
 
@@ -76,6 +97,7 @@ Amazon RDS is a scalable relational database service that is API-compatible with
 
 ## Quick links
 
+- [CloudFormation management console](https://console.aws.amazon.com/cloudformation/)
 - [Your Lambda functions](https://console.aws.amazon.com/lambda/home#/functions)
 - [Your API gateways](https://console.aws.amazon.com/apigateway/main/apis)
 - [CloudWatch logs](https://console.aws.amazon.com/cloudwatch/home#logsV2:log-groups)

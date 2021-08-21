@@ -1,0 +1,45 @@
+# This file describes the serverless stack that will serve as the back-end for the Littermap client application.
+#
+# The AWS SAM command line utility will follow this template in order to deploy this back-end system in the AWS cloud:
+#
+# https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-command-reference.html
+#
+# Quick information links:
+#
+# https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-api.html
+# https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html
+
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: Lambda function behind an API gateway
+
+Resources:
+  API:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: littermap-api
+      StageName: dev
+      OpenApiVersion: 3.0.3
+  SpotLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: spot
+      Handler: index.handler
+      Runtime: nodejs14.x
+      CodeUri: lambdas/spot/lambda.zip
+      PackageType: Zip
+      Description: Returns a random id (will be used to add or retrieve a litter location)
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        RootGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref API
+            Path: /
+            Method: GET
+
+Outputs:
+  API:
+    Description: "Endpoint URL"
+    Value: !Sub "https://${API}.execute-api.${AWS::Region}.amazonaws.com/${API.Stage}/"

@@ -1,5 +1,0 @@
-# Get your AWS accound ID here: https://console.aws.amazon.com/iam/
-export account=""
-
-# Geographical area for this deployment
-export region="us-east-1"
