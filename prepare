@@ -1,9 +1,23 @@
 #!/usr/bin/env sh
 
-echo Preparing configuration files
+echo Setting up configuration files...
 echo
 
 cp -v .config-templates/* .
+
+echo
+echo -n "Generating strong passwords for database access and administration"
+
+function pw () {
+  echo $(./manage make-rds-db-password)
+}
+
+p1="DBAdminPassword=\\\"$(pw)\\\""  && echo -n .
+p2="DBWriterPassword=\\\"$(pw)\\\"" && echo -n .
+p3="DBReaderPassword=\\\"$(pw)\\\"" && echo -n .
+
+echo parameter_overrides = \"$p1 $p2 $p3\" >> samconfig.toml
+echo \ done
 
 echo
 echo Configure your AWS account information by running: aws configure

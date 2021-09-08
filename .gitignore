@@ -1,5 +1,3 @@
-**/node_modules/
-lambdas/*/yarn.lock
 .aws-sam/
 /samconfig.toml
-*.zip
+node_modules/

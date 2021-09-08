@@ -3,3 +3,4 @@ version = 0.1
 [default.deploy]
 [default.deploy.parameters]
 stack_name = "littermap-backend"
+confirm_changeset = true

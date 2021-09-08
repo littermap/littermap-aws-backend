@@ -1,0 +1,8 @@
+{
+  "name": "littermap-layer-postgres",
+  "version": "1.0.0",
+  "dependencies": {
+    "pg": "^8.7.1",
+    "postgres": "^1.0.2"
+  }
+}

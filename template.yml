@@ -1,45 +1,252 @@
-# This file describes the serverless stack that will serve as the back-end for the Littermap client application.
+# This file describes the serverless stack that serves as the back-end for the Littermap application.
 #
-# The AWS SAM command line utility will follow this template in order to deploy this back-end system in the AWS cloud:
+# Quick reference links:
 #
-# https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-command-reference.html
-#
-# Quick information links:
-#
-# https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-api.html
-# https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html
+# https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-specification-template-anatomy.html
+# https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-specification-resources-and-properties.html
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/metadata-section-structure.html
+# https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-specification-template-anatomy-globals.html
+# https://theburningmonk.com/cloudformation-ref-and-getatt-cheatsheet/
 
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: 'AWS::Serverless-2016-10-31'
-Description: Lambda function behind an API gateway
+Description: Database access through a lambda function behind an API gateway
+
+Globals:
+  Function:
+    Handler: index.handler
+    Runtime: nodejs14.x
 
 Resources:
   API:
     Type: AWS::Serverless::Api
     Properties:
       Name: littermap-api
-      StageName: dev
-      OpenApiVersion: 3.0.3
-  SpotLambda:
+      StageName: !Ref DeploymentStage
+      OpenApiVersion: 3.0.3 # See: https://spec.openapis.org/oas/v3.0.3#introduction
+      Auth:
+        Authorizers: []
+
+  PostgresLib:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: postgres
+      ContentUri: layers/postgres
+      CompatibleRuntimes:
+        - nodejs14.x
+    Metadata:
+      BuildMethod: makefile
+
+  AddLocationLambda:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: spot
-      Handler: index.handler
-      Runtime: nodejs14.x
-      CodeUri: lambdas/spot/lambda.zip
-      PackageType: Zip
-      Description: Returns a random id (will be used to add or retrieve a litter location)
-      Policies:
-        - AWSLambdaBasicExecutionRole
+      FunctionName: add_location
+      CodeUri: lambdas/add_location
+      Description: Add a location
+      Role: !GetAtt LambdaDBAccessRole.Arn
+      Layers:
+        - !Ref PostgresLib
+      Environment:
+        Variables:
+          PGHOST: !GetAtt LitterDB.Endpoint.Address
+          PGPORT: !GetAtt LitterDB.Endpoint.Port
+          PGDATABASE: !Ref DBName
+          PGUSER: writer
+          PGPASSWORD: !Ref DBWriterPassword
       Events:
-        RootGet:
+        AddLocation:
           Type: Api
           Properties:
             RestApiId: !Ref API
-            Path: /
+            Path: /add
+            Method: POST
+
+  GetLocationLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: get_location
+      CodeUri: lambdas/get_location
+      Description: Retrieve a location by its id
+      Role: !GetAtt LambdaDBAccessRole.Arn
+      Layers:
+        - !Ref PostgresLib
+      Environment:
+        Variables:
+          PGHOST: !GetAtt LitterDB.Endpoint.Address
+          PGPORT: !GetAtt LitterDB.Endpoint.Port
+          PGDATABASE: !Ref DBName
+          PGUSER: reader
+          PGPASSWORD: !Ref DBReaderPassword
+      Events:
+        GetLocationById:
+          Type: Api
+          Properties:
+            RestApiId: !Ref API
+            Path: /id/{id}
             Method: GET
 
+  DBInitLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: db_init
+      CodeUri: lambdas/db_init
+      Description: Administrative lambda that initilizes the littermap-db database
+      Role: !GetAtt LambdaDBAccessRole.Arn
+      Timeout: 10
+      Layers:
+        - !Ref PostgresLib
+      Environment:
+        Variables:
+          PGHOST: !GetAtt LitterDB.Endpoint.Address
+          PGPORT: !GetAtt LitterDB.Endpoint.Port
+          PGDATABASE: !Ref DBName
+          PGUSER: !Ref DBAdminUser
+          PGPASSWORD: !Ref DBAdminPassword
+          DB_WRITER_PASSWORD: !Ref DBWriterPassword
+          DB_READER_PASSWORD: !Ref DBReaderPassword
+
+  DBRunLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: db_run
+      CodeUri: lambdas/db_run
+      Description: Runs a database query (as administrator)
+      Role: !GetAtt LambdaDBAccessRole.Arn
+      Layers:
+        - !Ref PostgresLib
+      Environment:
+        Variables:
+          PGHOST: !GetAtt LitterDB.Endpoint.Address
+          PGPORT: !GetAtt LitterDB.Endpoint.Port
+          PGDATABASE: !Ref DBName
+          DB_ADMIN: !Ref DBAdminUser
+          DB_ADMIN_PASSWORD: !Ref DBAdminPassword
+          DB_WRITER_PASSWORD: !Ref DBWriterPassword
+          DB_READER_PASSWORD: !Ref DBReaderPassword
+
+  LambdaDBAccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+               - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: rds-connect
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: rds-db:connect
+                Resource: '*'
+
+  LitterDB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Ref DBName
+      DBSnapshotIdentifier: !If [HasDBSnapshotIdentifier, !Ref DBSnapshotIdentifier, !Ref 'AWS::NoValue']
+      DBName: !Ref DBName
+      Engine: postgres
+      EngineVersion: !Ref DBPostgresVersion
+      AllowMajorVersionUpgrade: true
+      AutoMinorVersionUpgrade: true
+      DBInstanceClass: !Ref DBInstanceClass
+      AllocatedStorage: !Ref DBAllocatedStorage
+      BackupRetentionPeriod: 0 # no automated backups
+      MasterUsername: !Ref DBAdminUser
+      MasterUserPassword: !Ref DBAdminPassword
+
+Parameters:
+  DeploymentStage:
+    Description: Deployment stage
+    Type: String
+    Default: dev
+  DBInstanceClass:
+    Description: Database instance class
+    Type: String
+    Default: db.t2.micro
+  DBPostgresVersion:
+    Description: PostgreSQL version
+    Type: String
+    Default: 12.7
+  DBAllocatedStorage:
+    Description: Allocated storage (in GB)
+    Type: Number
+    Default: 5
+  DBSnapshotIdentifier:
+    Description: Provide the database snapshot id if you don't want a new database
+    Type: String
+  DBName:
+    Description: Database name
+    Type: String
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*"
+    ConstraintDescription: Must begin with a letter and contain only alphanumeric characters
+    Default: littermap
+  DBAdminUser:
+    Description: Database admin username
+    Type: String
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*"
+    ConstraintDescription: Must begin with a letter and contain only alphanumeric characters
+    Default: litteradmin
+  DBAdminPassword:
+    Description: Database admin password
+    Type: String
+    MinLength: 8
+    MaxLength: 128
+    AllowedPattern: "[^\\s@\"\\/]*"
+    ConstraintDescription: 'The password must be 8 to 128 characters and can include any printable ASCII character except "/", """, or "@"'
+    Default: makeitpristine
+  DBWriterPassword:
+    Description: Database write access password
+    Type: String
+    MinLength: 8
+    MaxLength: 128
+    AllowedPattern: "[^\\s@\"\\/]*"
+    ConstraintDescription: 'The password must be 8 to 128 characters and can include any printable ASCII character except "/", """, or "@"'
+    Default: recorder
+  DBReaderPassword:
+    Description: Database reader access password
+    Type: String
+    MinLength: 8
+    MaxLength: 128
+    AllowedPattern: "[^\\s@\"\\/]*"
+    ConstraintDescription: 'The password must be 8 to 128 characters and can include any printable ASCII character except "/", """, or "@"'
+    Default: observer
+
+Conditions:
+  HasNotDBSnapshotIdentifier: !Equals [!Ref DBSnapshotIdentifier, '']
+  HasDBSnapshotIdentifier: !Not [!Condition HasNotDBSnapshotIdentifier]
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Database Configuration"
+        Parameters:
+          - DBInstanceClass
+          - DBPostgresVersion
+          - DBAllocatedStorage
+          - DBSnapshotIdentifier
+          - DBAdminUser
+          - DBAdminPassword
+          - DBWriterPassword
+          - DBReaderPassword
+
 Outputs:
+  LitterDBHost:
+    Description: Database remote host
+    Value: !Sub "postgresql://${LitterDB.Endpoint.Address}:${LitterDB.Endpoint.Port}/${DBName}"
   API:
-    Description: "Endpoint URL"
-    Value: !Sub "https://${API}.execute-api.${AWS::Region}.amazonaws.com/${API.Stage}/"
+    Description: Endpoint URL
+    Value: !Sub "https://${API}.execute-api.${AWS::Region}.${AWS::URLSuffix}/${API.Stage}/"
+  Application:
+    Description: Manage this application
+    Value: !Sub "https://console.aws.amazon.com/lambda/home?region=${AWS::Region}#/applications/${AWS::StackName}"

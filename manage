@@ -26,6 +26,10 @@ args () {
   fi
 }
 
+get_stack_name () {
+  grep stack_name samconfig.toml | cut -d\" -f 2
+}
+
 case $1 in
   "list-lambdas" )
     aws lambda list-functions --output json
@@ -36,7 +40,7 @@ case $1 in
     ;;
 
   "list-api-urls" )
-    apis=$(./$0 list-apis | jq -r ".items[].id")
+    apis=$($0 list-apis | jq -r ".items[].id")
 
     for api in $apis ; do
       for stage in $(aws apigateway get-stages --rest-api-id $api | jq -r ".item[].stageName"); do
@@ -45,18 +49,148 @@ case $1 in
     done
     ;;
 
+  "list-rds-dbs" )
+    aws rds describe-db-instances --output json
+    ;;
+
+  "list-rds-db-endpoints" )
+    $0 list-rds-dbs | jq -r ".DBInstances[].Endpoint"
+    ;;
+
+  "list-rds-postgres-versions" )
+    for ver in $(aws rds describe-db-engine-versions --engine postgres --query "DBEngineVersions[].EngineVersion" --output=text); do
+      echo $ver
+    done
+    ;;
+
+  "list-rds-db-instance-options" )
+    aws rds describe-orderable-db-instance-options --engine postgres --engine-version 13.3 --query "*[].{DBInstanceClass:DBInstanceClass,StorageType:StorageType}|[?StorageType=='gp2']|[].{DBInstanceClass:DBInstanceClass}" --output text
+    ;;
+
   "list-stacks" )
     aws cloudformation describe-stacks --output json
     ;;
 
-  "build-lambda" )
+  "rds-db-stop-instance" )
     args 1
-    (cd lambdas/$2 ; rm -fv lambda.zip ; zip -r lambda.zip node_modules *.js)
+    aws rds stop-db-instance --db-instance-identifier $2
     ;;
 
-  "deploy-lambda" )
+  "rds-db-start-instance" )
     args 1
-    aws lambda update-function-code --function-name $2 --zip-file fileb://lambdas/$2/lambda.zip
+    aws rds start-db-instance --db-instance-identifier $2
+    ;;
+
+  "rds-db-init" )
+    $0 run-lambda db_init
+    ;;
+
+  "rds-db-run" ) # args: query, [user]
+    args 1
+
+    # Disable filename expansion so that the SQL query will be accepted verbatim
+    set -f
+
+    a1="\"query\":\"$(echo $2 | sed 's/"/\\"/g')\""
+    [ $# -ge 3 ] && a2=",\"user\": \"$3\""
+
+    json="{$a1$a2}"
+
+    echo Invoking query function with parameters:
+    echo
+    echo $json | jq .
+    echo
+
+    $0 run-lambda db_run --payload "$json"
+    ;;
+
+  "rds-db-run-file" ) # args: query-file
+    args 1
+
+    echo Invoking query function with parameters:
+    echo
+    cat $2 | jq .
+    echo
+
+    $0 run-lambda db_run --payload fileb://$2
+    ;;
+
+  "rds-db-get-security-group" )
+    aws rds describe-db-instances | jq -r ".DBInstances[].VpcSecurityGroups[].VpcSecurityGroupId"
+    ;;
+
+  "rds-db-authorize-ingress" )
+    sg=$($0 rds-db-get-security-group)
+    aws ec2 authorize-security-group-ingress --group-id $sg --protocol tcp --port 5432 --cidr 0.0.0.0/0
+    ;;
+
+  "rds-db-deauthorize-ingress" )
+    sg=$($0 rds-db-get-security-group)
+    aws ec2 revoke-security-group-ingress --group-id $sg --protocol tcp --port 5432 --cidr 0.0.0.0/0
+    ;;
+
+  "run-lambda" ) # args: func-name, [...params]
+    args 1
+
+    name=$2
+    shift 2
+
+    out=$(mktemp)
+    res=$(aws lambda invoke --function-name $name $out "$@")
+
+    echo Execution status:
+    echo
+    echo $res | jq .
+    echo
+    echo Function response: [raw: $out]
+    echo
+
+    status=$(cat $out | jq -r '.statusCode // empty')
+
+    if [ -z $status ]; then
+      cat $out | jq .
+    else
+      echo HTTP code: $status
+      echo
+      cat $out | jq '.body | fromjson'
+    fi
+    ;;
+
+  "lambda-logs" )
+    args 1
+
+    logstream=$(aws logs describe-log-streams --log-group-name "/aws/lambda/$2" --query 'logStreams[*].logStreamName' --output=text | head -n 1)
+
+    aws logs get-log-events --log-group-name "/aws/lambda/$2" --log-stream-name $logstream
+    ;;
+
+  "cancel-stack-update" )
+    aws cloudformation cancel-update-stack --stack-name ${2:-$(get_stack_name)}
+    ;;
+
+  "delete-stack" )
+    sam delete --stack-name ${2:-$(get_stack_name)}
+    ;;
+
+  "make-password" )
+    aws secretsmanager get-random-password --output=text
+    ;;
+
+  "make-rds-db-password" )
+    # As per documented constraints for RDS passwords, replace quotes with |,
+    # @ with # and / with \, and then also escape \ as \\
+    echo $($0 make-password) | tr '/@"'"'" '\\#||' | sed 's/\\/\\\\/g'
+    ;;
+
+  "check-service-quotas" )
+    service=$2
+
+    if [ -z $service ]; then
+      # List services with service quotas
+      aws service-quotas list-services | jq -r ".Services[].ServiceCode"
+    else
+      aws service-quotas list-service-quotas --service-code $service
+    fi
     ;;
 
   * )
