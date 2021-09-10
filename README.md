@@ -4,7 +4,8 @@ Serverless cloud back-end for the [Litter Map](https://github.com/earthstewards/
 
 - [Amazon API Gateway](https://aws.amazon.com/api-gateway/) API endpoints
 - [AWS Lambda](https://aws.amazon.com/lambda/) serverless back-end logic
-- [Amazon RDS](https://aws.amazon.com/rds/) database using [PostgreSQL](https://www.postgresql.org/) with [PostGIS](https://postgis.net/) to store global locations
+- [Amazon RDS](https://aws.amazon.com/rds/) relational database using [PostgreSQL](https://www.postgresql.org/) with [PostGIS](https://postgis.net/) to store global locations
+- [Amazon DynamoDB](https://aws.amazon.com/dynamodb/) fast and flexible database for event logs
 - Stack deployment with [AWS CloudFormation](https://aws.amazon.com/cloudformation/)
 
 ## Requirements
@@ -60,7 +61,7 @@ Perform first-time initialization on the littermap database:
 
 - `./manage rds-db-init`
 
-This will enable PostGIS and create tables and users.
+This will enable PostGIS and create tables and access roles.
 
 ## Using the running service
 
@@ -75,6 +76,14 @@ Add a location:
 Retrieve a location:
 
 - `http -v https://so3kybq7z6.execute-api.us-east-1.amazonaws.com/dev/id/1`
+
+View today's event log (in UTC):
+
+- `./manage event-log`
+
+View event log for any particular day (in UTC):
+
+- `./manage event-log 2021-12-25`
 
 ## Administration
 
@@ -92,7 +101,7 @@ The database can be completely reset by running:
 
 To connect to the database and use it directly, first look up the database user passwords:
 
-- `./manage list-lambdas | grep _PASSWORD | sort -u`
+- `./manage list-functions | grep _PASSWORD | sort -u`
 
 Get the host address with:
 
@@ -108,7 +117,7 @@ Type `\help` to get started.
 
 To take this service down, run:
 
-- `./manage delete-stack` ([what this does](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-delete.html))
+- `./manage stack-delete` ([what this does](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-delete.html))
 
 If that doesn't go smoothly, troubleshoot the issue or delete the stack in the [CloudFormation dashboard](https://console.aws.amazon.com/cloudformation/). Be aware that deleting or changing resources manually will result in [stack drift](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-drift.html?icmpid=docs_cfn_console) and can [create difficulties](https://forums.aws.amazon.com/message.jspa?messageID=510944#512973) that need to be resolved in order to manage the stack.
 
@@ -145,6 +154,7 @@ To learn more about the deployment process and options run:
 ## Development tips
 
 - For quick iteration, bind a shell alias for `sam build && sam deploy`.
+- Test javascript code with [jshint](https://github.com/jshint/jshint/blob/master/docs/install.md) before deploying
 
 ## Knowledge resources
 
@@ -168,7 +178,9 @@ To learn more about the deployment process and options run:
 
 ### [Amazon RDS](https://aws.amazon.com/rds/) database
 
-Amazon RDS is a scalable relational database service that is API-compatible with PostgreSQL, so techniques involving PostgreSQL generally apply.
+Used as the main database to store global locations
+
+> Amazon RDS is a scalable relational database service that is API-compatible with PostgreSQL.
 
 - [What is Amazon RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Welcome.html)
 - [Builds a GIS server site on Amazon Web Services](https://enterprise.arcgis.com/en/server/10.4/cloud/amazon/build-arcgis-server-site-on-aws.htm)
@@ -184,23 +196,31 @@ Amazon RDS is a scalable relational database service that is API-compatible with
 
 ### [DynamoDB](https://aws.amazon.com/dynamodb/) database
 
-- Under consideration as an auxiliary database to be used for event logging
+Auxiliary database used for event logging
 
-DynamoDB is a fast and flexible [NoSQL](https://www.mongodb.com/nosql-explained) database that is simple by design but difficult to master. Exceptionally optimal performance and extreme economy of scale can be achieved if used correctly.
+> DynamoDB is a fast and flexible [NoSQL](https://www.mongodb.com/nosql-explained) database that is simple by design but difficult to master. Exceptionally optimal performance and extreme economy of scale can be achieved if used correctly.
 
 - [A look at DynamoDB](https://cloudonaut.io/a-look-at-dynamodb/)
-- [Amazon DynamoDB vs PostGIS](https://stackshare.io/stackups/amazon-dynamodb-vs-postgis)
+- [The basics of DynamoDB](https://www.freecodecamp.org/news/ultimate-dynamodb-2020-cheatsheet/)
 - [Data modeling with document databases](https://db-engines.com/en/blog_post/51)
 - [Querying on multiple attributes in Amazon DynamoDB](https://aws.amazon.com/blogs/database/querying-on-multiple-attributes-in-amazon-dynamodb/)
+- [Best practices for designing DynamoDB paritition keys](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-partition-key-design.html)
 - [Choosing the right DynamoDB partition key](https://aws.amazon.com/blogs/database/choosing-the-right-dynamodb-partition-key/)
-- [Implementing geohashing at scale in serverless web applications](https://aws.amazon.com/blogs/compute/implementing-geohashing-at-scale-in-serverless-web-applications/)
+- [Best practices for designing and architecting with DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/best-practices.html)
+- [Hands on examples with DynamoDB](https://cloudaffaire.com/primary-key-in-dynamodb/)
+- [Using DynamoDB with AWS CLI](https://dynobase.dev/dynamodb-cli-query-examples/)
+- [How to back up and restore DynamoDB tables](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/backuprestore_HowItWorks.html)
 
-### Technical resources
+### Technical guides
 
 - [Create a Lambda funciton with AWS command line interface](https://medium.com/swlh/create-a-lambda-function-with-aws-command-line-interface-55e5f2af92e1)
 - [AWS Lambda python demo using AWS CLI](https://medium.com/@schogini/aws-lambda-python-demo-using-aws-cli-5b088270784e)
 - [AWS APIGateway and Lambda - a GET method CLI demo](https://medium.com/@schogini/aws-apigateway-and-lambda-a-get-mehod-cli-demo-8a05e82df275)
 - [AWS API gateway permission to invoke Lambda functions](https://medium.com/@jun711.g/aws-api-gateway-invoke-lambda-function-permission-6c6834f14b61)
+
+### Technical articles
+
+- [Seriously high performance time series storage strategy](https://apprize.best/data/series/4.html)
 
 ### Reference
 
@@ -208,8 +228,11 @@ DynamoDB is a fast and flexible [NoSQL](https://www.mongodb.com/nosql-explained)
 
 ## Quick links
 
-- [CloudFormation management console](https://console.aws.amazon.com/cloudformation/)
+- [Manage this application](https://console.aws.amazon.com/lambda/#applications)
+- [Your CloudFormation stacks](https://console.aws.amazon.com/cloudformation/)
 - [Your Lambda functions](https://console.aws.amazon.com/lambda/home#/functions)
 - [Your API gateways](https://console.aws.amazon.com/apigateway/main/apis)
+- [Your DynamoDB tables](https://console.aws.amazon.com/dynamodb/home#tables)
+- [Your RDS database instances](https://console.aws.amazon.com/rds/home#databases:)
 - [CloudWatch logs](https://console.aws.amazon.com/cloudwatch/home#logsV2:log-groups)
 - [Identity and Access Management](https://console.aws.amazon.com/iam/)

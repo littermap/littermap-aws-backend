@@ -1,3 +1,4 @@
+// Connection information is provided using specially named environment variables
 const postgres = require('postgres')
 
 const sql_reset_db = `
@@ -42,7 +43,6 @@ const sql_grant_permissions = `
 exports.handler = async function(event, context) {
   let status = 200, log = []
 
-  // Connection information is provided using specially named environment variables
   const pg = postgres()
 
   try {

@@ -11,7 +11,7 @@
 
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: 'AWS::Serverless-2016-10-31'
-Description: Database access through a lambda function behind an API gateway
+Description: Global location submission and retrieval system
 
 Globals:
   Function:
@@ -31,26 +31,37 @@ Resources:
   PostgresLib:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: postgres
-      ContentUri: layers/postgres
+      LayerName: lib-postgres
+      ContentUri: lib/postgres
       CompatibleRuntimes:
         - nodejs14.x
     Metadata:
       BuildMethod: makefile
 
-  AddLocationLambda:
+  LogEventFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: add_location
-      CodeUri: lambdas/add_location
+      FunctionName: log-event
+      CodeUri: functions/log-event
+      Description: Record a single event in the event log table
+      Role: !GetAtt LogEventFunctionRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref EventTable
+
+  AddLocationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: add-location
+      CodeUri: functions/add-location
       Description: Add a location
-      Role: !GetAtt LambdaDBAccessRole.Arn
+      Role: !GetAtt AddLocationFunctionRole.Arn
       Layers:
         - !Ref PostgresLib
       Environment:
         Variables:
-          PGHOST: !GetAtt LitterDB.Endpoint.Address
-          PGPORT: !GetAtt LitterDB.Endpoint.Port
+          PGHOST: !GetAtt MainDB.Endpoint.Address
+          PGPORT: !GetAtt MainDB.Endpoint.Port
           PGDATABASE: !Ref DBName
           PGUSER: writer
           PGPASSWORD: !Ref DBWriterPassword
@@ -62,19 +73,34 @@ Resources:
             Path: /add
             Method: POST
 
-  GetLocationLambda:
+  AddLocationFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+               - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+  GetLocationFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: get_location
-      CodeUri: lambdas/get_location
+      FunctionName: get-location
+      CodeUri: functions/get-location
       Description: Retrieve a location by its id
-      Role: !GetAtt LambdaDBAccessRole.Arn
+      Role: !GetAtt DBAdminFunctionRole.Arn
       Layers:
         - !Ref PostgresLib
       Environment:
         Variables:
-          PGHOST: !GetAtt LitterDB.Endpoint.Address
-          PGPORT: !GetAtt LitterDB.Endpoint.Port
+          PGHOST: !GetAtt MainDB.Endpoint.Address
+          PGPORT: !GetAtt MainDB.Endpoint.Port
           PGDATABASE: !Ref DBName
           PGUSER: reader
           PGPASSWORD: !Ref DBReaderPassword
@@ -86,46 +112,46 @@ Resources:
             Path: /id/{id}
             Method: GET
 
-  DBInitLambda:
+  DBInitFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: db_init
-      CodeUri: lambdas/db_init
+      FunctionName: db-init
+      CodeUri: functions/db-init
       Description: Administrative lambda that initilizes the littermap-db database
-      Role: !GetAtt LambdaDBAccessRole.Arn
+      Role: !GetAtt DBAdminFunctionRole.Arn
       Timeout: 10
       Layers:
         - !Ref PostgresLib
       Environment:
         Variables:
-          PGHOST: !GetAtt LitterDB.Endpoint.Address
-          PGPORT: !GetAtt LitterDB.Endpoint.Port
+          PGHOST: !GetAtt MainDB.Endpoint.Address
+          PGPORT: !GetAtt MainDB.Endpoint.Port
           PGDATABASE: !Ref DBName
           PGUSER: !Ref DBAdminUser
           PGPASSWORD: !Ref DBAdminPassword
           DB_WRITER_PASSWORD: !Ref DBWriterPassword
           DB_READER_PASSWORD: !Ref DBReaderPassword
 
-  DBRunLambda:
+  DBRunFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: db_run
-      CodeUri: lambdas/db_run
+      FunctionName: db-run
+      CodeUri: functions/db-run
       Description: Runs a database query (as administrator)
-      Role: !GetAtt LambdaDBAccessRole.Arn
+      Role: !GetAtt DBAdminFunctionRole.Arn
       Layers:
         - !Ref PostgresLib
       Environment:
         Variables:
-          PGHOST: !GetAtt LitterDB.Endpoint.Address
-          PGPORT: !GetAtt LitterDB.Endpoint.Port
+          PGHOST: !GetAtt MainDB.Endpoint.Address
+          PGPORT: !GetAtt MainDB.Endpoint.Port
           PGDATABASE: !Ref DBName
           DB_ADMIN: !Ref DBAdminUser
           DB_ADMIN_PASSWORD: !Ref DBAdminPassword
           DB_WRITER_PASSWORD: !Ref DBWriterPassword
           DB_READER_PASSWORD: !Ref DBReaderPassword
 
-  LambdaDBAccessRole:
+  LogEventFunctionRole:
     Type: AWS::IAM::Role
     Properties:
       ManagedPolicyArns:
@@ -140,15 +166,58 @@ Resources:
             Action:
               - sts:AssumeRole
       Policies:
-        - PolicyName: rds-connect
+        - PolicyName: eventlog-write
           PolicyDocument:
             Version: 2012-10-17
             Statement:
-              - Effect: Allow
-                Action: rds-db:connect
-                Resource: '*'
+              - Action: dynamodb:PutItem
+                Resource: !GetAtt EventTable.Arn
+                Effect: Allow
 
-  LitterDB:
+  DBAdminFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+               - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+  AllowDBAccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: allow-rds-connect
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action: rds-db:connect
+            Resource: !Sub arn:aws:rds:${AWS::Region}:${AWS::AccountId}:db:${MainDB}
+            Effect: Allow
+      Roles:
+        - Ref: DBAdminFunctionRole
+          Ref: AddLocationFunctionRole
+
+  AllowLogEventPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: allow-log-event
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action: lambda:InvokeFunction
+            Resource: !GetAtt LogEventFunction.Arn
+            Effect: Allow
+      Roles:
+        - Ref: AddLocationFunctionRole
+
+  # Main database that stores the world
+  MainDB:
     Type: AWS::RDS::DBInstance
     Properties:
       DBInstanceIdentifier: !Ref DBName
@@ -163,6 +232,25 @@ Resources:
       BackupRetentionPeriod: 0 # no automated backups
       MasterUsername: !Ref DBAdminUser
       MasterUserPassword: !Ref DBAdminPassword
+
+  # Event log
+  EventTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: littermap-events
+      AttributeDefinitions:
+        - AttributeName: date_key
+          AttributeType: S
+        - AttributeName: time_key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: date_key
+          KeyType: HASH
+        - AttributeName: time_key
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: !Ref EventLogReadCapacity
+        WriteCapacityUnits: !Ref EventLogWriteCapacity
 
 Parameters:
   DeploymentStage:
@@ -220,6 +308,14 @@ Parameters:
     AllowedPattern: "[^\\s@\"\\/]*"
     ConstraintDescription: 'The password must be 8 to 128 characters and can include any printable ASCII character except "/", """, or "@"'
     Default: observer
+  EventLogReadCapacity:
+    Description: Event log database provisioned read capacity
+    Type: Number
+    Default: 1
+  EventLogWriteCapacity:
+    Description: Event log database provisioned write capacity
+    Type: Number
+    Default: 1
 
 Conditions:
   HasNotDBSnapshotIdentifier: !Equals [!Ref DBSnapshotIdentifier, '']
@@ -241,9 +337,9 @@ Metadata:
           - DBReaderPassword
 
 Outputs:
-  LitterDBHost:
+  MainDBHost:
     Description: Database remote host
-    Value: !Sub "postgresql://${LitterDB.Endpoint.Address}:${LitterDB.Endpoint.Port}/${DBName}"
+    Value: !Sub "postgresql://${MainDB.Endpoint.Address}:${MainDB.Endpoint.Port}/${DBName}"
   API:
     Description: Endpoint URL
     Value: !Sub "https://${API}.execute-api.${AWS::Region}.${AWS::URLSuffix}/${API.Stage}/"

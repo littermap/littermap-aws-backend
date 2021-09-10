@@ -31,7 +31,7 @@ get_stack_name () {
 }
 
 case $1 in
-  "list-lambdas" )
+  "list-functions" )
     aws lambda list-functions --output json
     ;;
 
@@ -71,65 +71,7 @@ case $1 in
     aws cloudformation describe-stacks --output json
     ;;
 
-  "rds-db-stop-instance" )
-    args 1
-    aws rds stop-db-instance --db-instance-identifier $2
-    ;;
-
-  "rds-db-start-instance" )
-    args 1
-    aws rds start-db-instance --db-instance-identifier $2
-    ;;
-
-  "rds-db-init" )
-    $0 run-lambda db_init
-    ;;
-
-  "rds-db-run" ) # args: query, [user]
-    args 1
-
-    # Disable filename expansion so that the SQL query will be accepted verbatim
-    set -f
-
-    a1="\"query\":\"$(echo $2 | sed 's/"/\\"/g')\""
-    [ $# -ge 3 ] && a2=",\"user\": \"$3\""
-
-    json="{$a1$a2}"
-
-    echo Invoking query function with parameters:
-    echo
-    echo $json | jq .
-    echo
-
-    $0 run-lambda db_run --payload "$json"
-    ;;
-
-  "rds-db-run-file" ) # args: query-file
-    args 1
-
-    echo Invoking query function with parameters:
-    echo
-    cat $2 | jq .
-    echo
-
-    $0 run-lambda db_run --payload fileb://$2
-    ;;
-
-  "rds-db-get-security-group" )
-    aws rds describe-db-instances | jq -r ".DBInstances[].VpcSecurityGroups[].VpcSecurityGroupId"
-    ;;
-
-  "rds-db-authorize-ingress" )
-    sg=$($0 rds-db-get-security-group)
-    aws ec2 authorize-security-group-ingress --group-id $sg --protocol tcp --port 5432 --cidr 0.0.0.0/0
-    ;;
-
-  "rds-db-deauthorize-ingress" )
-    sg=$($0 rds-db-get-security-group)
-    aws ec2 revoke-security-group-ingress --group-id $sg --protocol tcp --port 5432 --cidr 0.0.0.0/0
-    ;;
-
-  "run-lambda" ) # args: func-name, [...params]
+  "function-run" ) # args: func-name, [...params]
     args 1
 
     name=$2
@@ -156,7 +98,7 @@ case $1 in
     fi
     ;;
 
-  "lambda-logs" )
+  "function-logs" )
     args 1
 
     logstream=$(aws logs describe-log-streams --log-group-name "/aws/lambda/$2" --query 'logStreams[*].logStreamName' --output=text | head -n 1)
@@ -164,11 +106,84 @@ case $1 in
     aws logs get-log-events --log-group-name "/aws/lambda/$2" --log-stream-name $logstream
     ;;
 
-  "cancel-stack-update" )
+  "rds-db-hibernate-instance" )
+    args 1
+    aws rds stop-db-instance --db-instance-identifier $2
+    ;;
+
+  "rds-db-wake-instance" )
+    args 1
+    aws rds start-db-instance --db-instance-identifier $2
+    ;;
+
+  "rds-db-init" )
+    $0 function-run db-init
+    ;;
+
+  "rds-db-run" ) # args: query, [user]
+    args 1
+
+    # Disable filename expansion so that the SQL query will be accepted verbatim
+    set -f
+
+    a1="\"query\":\"$(echo $2 | sed 's/"/\\"/g')\""
+    [ $# -ge 3 ] && a2=",\"user\": \"$3\""
+
+    json="{$a1$a2}"
+
+    echo Invoking query function with parameters:
+    echo
+    echo $json | jq .
+    echo
+
+    $0 function-run db-run --payload "$json"
+    ;;
+
+  "rds-db-run-file" ) # args: query-file
+    args 1
+
+    echo Invoking query function with parameters:
+    echo
+    cat $2 | jq .
+    echo
+
+    $0 function-run db-run --payload fileb://$2
+    ;;
+
+  "rds-db-get-security-group" )
+    aws rds describe-db-instances | jq -r ".DBInstances[].VpcSecurityGroups[].VpcSecurityGroupId"
+    ;;
+
+  "rds-db-authorize-ingress" )
+    sg=$($0 rds-db-get-security-group)
+    aws ec2 authorize-security-group-ingress --group-id $sg --protocol tcp --port 5432 --cidr 0.0.0.0/0
+    ;;
+
+  "rds-db-deauthorize-ingress" )
+    sg=$($0 rds-db-get-security-group)
+    aws ec2 revoke-security-group-ingress --group-id $sg --protocol tcp --port 5432 --cidr 0.0.0.0/0
+    ;;
+
+  "event-log-table-info" )
+    aws dynamodb describe-table --table-name littermap-events
+    ;;
+
+  "event-log-table-schema" )
+    $0 event-log-table-info | jq .
+    ;;
+
+  "event-log" ) # args: [utc-date]
+    # Convert today or given UTC date to epoch time
+    date=$(date --date=${2:-$(date --utc +"%Y-%m-%d")} --utc +%s)
+
+    aws dynamodb query --table-name littermap-events --key-condition-expression 'date_key = :date' --expression-attribute-values "{\":date\": {\"S\": \"$date\"}}" --scan-index-forward --output=text | sed 1d
+    ;;
+
+  "stack-cancel-update" )
     aws cloudformation cancel-update-stack --stack-name ${2:-$(get_stack_name)}
     ;;
 
-  "delete-stack" )
+  "stack-delete" )
     sam delete --stack-name ${2:-$(get_stack_name)}
     ;;
 
