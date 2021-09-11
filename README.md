@@ -225,6 +225,16 @@ Auxiliary database used for event logging
 ### Reference
 
 - [AWS terminology glossary](https://docs.aws.amazon.com/general/latest/gr/glos-chap.html)
+- [CloudFormation Ref and GetAtt lookup](https://theburningmonk.com/cloudformation-ref-and-getatt-cheatsheet/)
+
+#### Cheatsheets
+
+- [git (basic)](http://git-cheatsheet.com/)
+- [git (advanced)](https://dev.to/maxpou/git-cheat-sheet-advanced-3a17)
+- [jq](https://lzone.de/cheat-sheet/jq)
+- [bash](https://devhints.io/bash)
+- [PostgreSQL](https://www.postgresqltutorial.com/postgresql-cheat-sheet/)
+- [PostGIS](http://www.postgis.us/downloads/postgis21_cheatsheet.pdf) [pdf]
 
 ## Quick links
 

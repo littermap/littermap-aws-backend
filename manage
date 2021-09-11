@@ -183,7 +183,7 @@ case $1 in
     # Convert today or given UTC date to epoch time
     date=$(date --date=${2:-$(date --utc +"%Y-%m-%d")} --utc +%s)
 
-    aws dynamodb query --table-name littermap-events --key-condition-expression 'date_key = :date' --expression-attribute-values "{\":date\": {\"S\": \"$date\"}}" --scan-index-forward --output=text | sed 1d
+    aws dynamodb query --table-name littermap-events --key-condition-expression 'date_key = :date' --expression-attribute-values "{\":date\": {\"S\": \"$date\"}}" --scan-index-forward | jq -r '.Items[] | [.timestamp.S, .event.M.message.S] | join(" :: ")'
     ;;
 
   "stack-cancel-update" ) # args: [stack-name]
