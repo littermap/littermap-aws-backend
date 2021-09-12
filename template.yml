@@ -111,6 +111,12 @@ Resources:
             RestApiId: !Ref API
             Path: /id/{id}
             Method: GET
+        GetLocationsByRadius:
+          Type: Api
+          Properties:
+            RestApiId: !Ref API
+            Path: /radius
+            Method: GET
 
   DBInitFunction:
     Type: AWS::Serverless::Function

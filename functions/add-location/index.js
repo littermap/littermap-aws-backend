@@ -1,3 +1,16 @@
+//
+// Add location to the global database
+//
+// Expects POST data in the form:
+//
+// {
+//   "lat": 28.6,
+//   "lon": -80.6
+// }
+//
+// Returns the id of the newly created location.
+//
+
 const postgres = require('postgres')
 const lambda = new (require('aws-sdk/clients/lambda'))()
 

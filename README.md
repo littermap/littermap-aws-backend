@@ -12,7 +12,7 @@ Serverless cloud back-end for the [Litter Map](https://github.com/earthstewards/
 
 - [aws-cli](https://aws.amazon.com/cli/) (for making AWS requests)
 - [sam-cli](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html) (1.29.0 or later) (for managing the serverless stack deployment)
-- [jq](https://stedolan.github.io/jq/) (1.4 or later) command-line JSON processor (to parse JSON responses used by certain commands provided by the `manage` script)
+- [jq](https://stedolan.github.io/jq/) (1.4 or later) (for parsing JSON)
 - [yarn](https://yarnpkg.com/) (for nodejs dependencies)
 - [docker](https://docs.docker.com/get-docker/) (for simulating the infrastructure to test functions locally)
 
@@ -22,8 +22,9 @@ Serverless cloud back-end for the [Litter Map](https://github.com/earthstewards/
 
 ## Useful utilities
 
-- [awslogs](https://github.com/jorgebastida/awslogs) for viewing logs
+- [awslogs](https://github.com/jorgebastida/awslogs) for viewing AWS logs
 - [httpie](https://httpie.io/docs) for making HTTP requests
+- [geocode](https://github.com/alexreisner/geocoder#command-line-interface) for address lookups from the command line
 
 ## How to deploy
 
@@ -174,6 +175,7 @@ To learn more about the deployment process and options run:
 - [5 AWS mistakes you should avoid](https://cloudonaut.io/5-aws-mistakes-you-should-avoid/)
 - [AWS Lambda execution context demystified](https://blog.ippon.tech/lambda-execution-context-demystified/)
 - [Using AWS Web Application Firewall to protect your APIs](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-control-access-aws-waf.html)
+- [Amazon Web Services: Overview of Security Processes](https://tdcontent.techdata.com/techsolutions/security/assets/files/aws-overview-security-processes.pdf) [pdf]
 - [AWS fundamentals cheatsheet](https://github.com/agavrel/aws_fundamentals_cheatsheet)
 
 ### [Amazon RDS](https://aws.amazon.com/rds/) database
@@ -189,6 +191,7 @@ Used as the main database to store global locations
 - [Overview of RDS database instance classes](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.html)
 - [AWS RDS best practices](https://www.cloudconformity.com/knowledge-base/aws/RDS/)
 - [Cloning RDS instances for testing](https://blog.dmcquay.com/devops/2015/09/18/cloning-rds-instances-for-testing.html)
+- [Database authentication with Amazon RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/database-authentication.html)
 - [Using schemas in a PostgreSQL database](https://www.postgresql.org/docs/current/ddl-schemas.html)
 - [Using transaction blocks in PostgreSQL](https://www.postgresql.org/docs/current/sql-begin.html)
 - [Connecting to Postgres using node-postgres](https://node-postgres.com/features/connecting)

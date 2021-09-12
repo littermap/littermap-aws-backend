@@ -1,3 +1,9 @@
+//
+// Administrative function that runs a database query
+//
+// Meant to be invoked manually or from another administrative component
+//
+
 const postgres = require('postgres')
 
 exports.handler = async function(event, context) {
