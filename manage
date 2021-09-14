@@ -108,9 +108,11 @@ case $1 in
   "function-logs" ) # args: func-name
     args 1
 
-    logstream=$(aws logs describe-log-streams --log-group-name "/aws/lambda/$2" --query 'logStreams[*].logStreamName' --output=text | head -n 1)
+    logstreams=$(aws logs describe-log-streams --log-group-name "/aws/lambda/$2" --query 'logStreams[*].logStreamName' | jq -r '.[-1]')
 
-    aws logs get-log-events --log-group-name "/aws/lambda/$2" --log-stream-name $logstream
+    for i in $logstreams; do
+      aws logs get-log-events --log-group-name "/aws/lambda/$2" --log-stream-name $i | jq '.events[]'
+    done
     ;;
 
   "rds-db-hibernate-instance" ) # args: instance-id

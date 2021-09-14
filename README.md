@@ -2,7 +2,7 @@ Serverless cloud back-end for the [Litter Map](https://github.com/earthstewards/
 
 ## Architecture
 
-- [Amazon API Gateway](https://aws.amazon.com/api-gateway/) API endpoints
+- [Amazon API Gateway](https://aws.amazon.com/api-gateway/) REST endpoints
 - [AWS Lambda](https://aws.amazon.com/lambda/) serverless back-end logic
 - [Amazon RDS](https://aws.amazon.com/rds/) relational database using [PostgreSQL](https://www.postgresql.org/) with [PostGIS](https://postgis.net/) to store global locations
 - [Amazon DynamoDB](https://aws.amazon.com/dynamodb/) fast and flexible database for event logs
@@ -12,7 +12,7 @@ Serverless cloud back-end for the [Litter Map](https://github.com/earthstewards/
 
 - [aws-cli](https://aws.amazon.com/cli/) (for making AWS requests)
 - [sam-cli](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html) (1.29.0 or later) (for managing the serverless stack deployment)
-- [jq](https://stedolan.github.io/jq/) (1.4 or later) (for parsing JSON)
+- [jq](https://stedolan.github.io/jq/) (1.5 or later) (for parsing JSON)
 - [yarn](https://yarnpkg.com/) (for nodejs dependencies)
 - [docker](https://docs.docker.com/get-docker/) (for simulating the infrastructure to test functions locally)
 
@@ -70,7 +70,7 @@ The active URL for the deployed API can be viewed by running:
 
 - `./manage list-api-urls`
 
-Add a location:
+Add a location (replace URL with yours):
 
 - `echo '{"lat":22.31258,"lon":114.04127}' | http -v POST https://so3kybq7z6.execute-api.us-east-1.amazonaws.com/dev/add`
 
@@ -177,6 +177,7 @@ To learn more about the deployment process and options run:
 - [Using AWS Web Application Firewall to protect your APIs](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-control-access-aws-waf.html)
 - [Amazon Web Services: Overview of Security Processes](https://tdcontent.techdata.com/techsolutions/security/assets/files/aws-overview-security-processes.pdf) [pdf]
 - [AWS fundamentals cheatsheet](https://github.com/agavrel/aws_fundamentals_cheatsheet)
+- [What are the pros and cons of using third party sign-in](https://www.quora.com/What-are-the-pros-and-cons-of-using-Google-Sign-In-for-web-applications/answer/Dagmar-Timler)
 
 ### [Amazon RDS](https://aws.amazon.com/rds/) database
 
@@ -185,7 +186,7 @@ Used as the main database to store global locations
 > Amazon RDS is a scalable relational database service that is API-compatible with PostgreSQL.
 
 - [What is Amazon RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Welcome.html)
-- [Builds a GIS server site on Amazon Web Services](https://enterprise.arcgis.com/en/server/10.4/cloud/amazon/build-arcgis-server-site-on-aws.htm)
+- [Build a GIS server site on Amazon Web Services](https://enterprise.arcgis.com/en/server/10.4/cloud/amazon/build-arcgis-server-site-on-aws.htm)
 - [Building a simple geodata service with Node, PostGIS, and Amazon RDS](https://blog.geomusings.com/2013/12/11/building-a-simple-geodata-service-with-node-and-amazon-rds/)
 - [PostgreSQL on Amazon RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_PostgreSQL.html)
 - [Overview of RDS database instance classes](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.html)
@@ -196,12 +197,13 @@ Used as the main database to store global locations
 - [Using transaction blocks in PostgreSQL](https://www.postgresql.org/docs/current/sql-begin.html)
 - [Connecting to Postgres using node-postgres](https://node-postgres.com/features/connecting)
 - [Suggestions on what not to do with PostgreSQL](https://shabaam.co/postgresql-now-utc/)
+- [Scaling your Amazon RDS instance](https://aws.amazon.com/blogs/database/scaling-your-amazon-rds-instance-vertically-and-horizontally/)
 
 ### [DynamoDB](https://aws.amazon.com/dynamodb/) database
 
 Auxiliary database used for event logging
 
-> DynamoDB is a fast and flexible [NoSQL](https://www.mongodb.com/nosql-explained) database that is simple by design but difficult to master. Exceptionally optimal performance and extreme economy of scale can be achieved if used correctly.
+> DynamoDB is a fast and flexible [NoSQL](https://www.mongodb.com/nosql-explained) database that is simple by design but difficult to master. If used correctly, it will scale to terabytes and beyond with no performance degradation.
 
 - [A look at DynamoDB](https://cloudonaut.io/a-look-at-dynamodb/)
 - [The basics of DynamoDB](https://www.freecodecamp.org/news/ultimate-dynamodb-2020-cheatsheet/)
@@ -213,6 +215,7 @@ Auxiliary database used for event logging
 - [Hands on examples with DynamoDB](https://cloudaffaire.com/primary-key-in-dynamodb/)
 - [Using DynamoDB with AWS CLI](https://dynobase.dev/dynamodb-cli-query-examples/)
 - [How to back up and restore DynamoDB tables](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/backuprestore_HowItWorks.html)
+- [The three main performance limits of DynamoDB](https://www.alexdebrie.com/posts/dynamodb-limits/)
 
 ### Technical guides
 
@@ -223,12 +226,13 @@ Auxiliary database used for event logging
 
 ### Technical articles
 
-- [Seriously high performance time series storage strategy](https://apprize.best/data/series/4.html)
+- [High performance storage strategy for time series data](https://apprize.best/data/series/4.html)
 
 ### Reference
 
 - [AWS terminology glossary](https://docs.aws.amazon.com/general/latest/gr/glos-chap.html)
 - [CloudFormation Ref and GetAtt lookup](https://theburningmonk.com/cloudformation-ref-and-getatt-cheatsheet/)
+- [Auhentication with Google Identity](https://developers.google.com/identity/protocols/oauth2/openid-connect)
 
 #### Cheatsheets
 
