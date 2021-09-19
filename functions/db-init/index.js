@@ -21,9 +21,10 @@ const sql_create_world = `
   CREATE TABLE world.locations (
     id SERIAL PRIMARY KEY,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    lat FLOAT,
-    lon FLOAT,
-    geo GEOMETRY(POINT, 4326)
+    lat FLOAT NOT NULL,
+    lon FLOAT NOT NULL,
+    geo GEOMETRY(POINT, 4326) NOT NULL,
+    created_by TEXT
   );
 
   CREATE ROLE writer LOGIN ENCRYPTED PASSWORD '${process.env.DB_WRITER_PASSWORD}' NOCREATEROLE NOCREATEDB NOSUPERUSER NOINHERIT;
@@ -46,32 +47,30 @@ exports.handler = async function(event, context) {
   const pg = postgres()
 
   try {
-    let result
-
-    result = await pg.unsafe(sql_reset_db)
+    await pg.unsafe(sql_reset_db)
     log.push({
       completed: "Performed factory reset of the database"
     })
 
-    result = await pg.unsafe(sql_postgis_init)
+    await pg.unsafe(sql_postgis_init)
     log.push({
       completed: "Initialized PostGIS"
     })
 
-    result = await pg.unsafe(sql_create_world)
+    await pg.unsafe(sql_create_world)
     log.push({
       completed: "Created tables and users"
     })
 
-    result = await pg.unsafe(sql_grant_permissions)
+    await pg.unsafe(sql_grant_permissions)
     log.push({
       completed: "Created user permissions"
     })
-  } catch(error) {
+  } catch(e) {
     status = 500
     log.push({
-      issue: "Internal error",
-      error
+      error: "Database correspondence error",
+      reason: e.message
     })
   } finally {
     pg.end()

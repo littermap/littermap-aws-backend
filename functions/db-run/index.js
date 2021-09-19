@@ -24,9 +24,9 @@ exports.handler = async function(event, context) {
 
     try {
       res = await pg.unsafe(query)
-    } catch(error) {
+    } catch(e) {
       status = 500
-      res = { error }
+      res = { error: "Database error", reason: e.message }
     } finally {
       pg.end()
     }

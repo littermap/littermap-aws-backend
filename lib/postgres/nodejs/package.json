@@ -1,5 +1,5 @@
 {
-  "name": "littermap-layer-postgres",
+  "name": "layer-postgres",
   "version": "1.0.0",
   "dependencies": {
     "postgres": "^2.0.0-beta"

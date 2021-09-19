@@ -17,6 +17,7 @@ Globals:
   Function:
     Handler: index.handler
     Runtime: nodejs14.x
+    CodeUri: functions
 
 Resources:
   API:
@@ -28,6 +29,17 @@ Resources:
       Auth:
         Authorizers: []
 
+  CommonLib:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: lib-common
+      ContentUri: lib/common
+      CompatibleRuntimes:
+        - nodejs14.x
+      RetentionPolicy: Delete
+    Metadata:
+      BuildMethod: makefile
+
   PostgresLib:
     Type: AWS::Serverless::LayerVersion
     Properties:
@@ -35,6 +47,7 @@ Resources:
       ContentUri: lib/postgres
       CompatibleRuntimes:
         - nodejs14.x
+      RetentionPolicy: Delete
     Metadata:
       BuildMethod: makefile
 
@@ -42,24 +55,27 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: log-event
-      CodeUri: functions/log-event
       Description: Record a single event in the event log table
       Role: !GetAtt LogEventFunctionRole.Arn
       Environment:
         Variables:
-          TABLE_NAME: !Ref EventTable
+          TABLE_NAME: !Ref EventsTable
+    Metadata:
+      BuildMethod: makefile
 
   AddLocationFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: add-location
-      CodeUri: functions/add-location
       Description: Add a location
       Role: !GetAtt AddLocationFunctionRole.Arn
       Layers:
+        - !Ref CommonLib
         - !Ref PostgresLib
       Environment:
         Variables:
+          SESSIONS_TABLE: !Ref SessionsTable
+          SESSION_LIFETIME_IN_DAYS: !Ref SessionLifetimeInDays
           PGHOST: !GetAtt MainDB.Endpoint.Address
           PGPORT: !GetAtt MainDB.Endpoint.Port
           PGDATABASE: !Ref DBName
@@ -72,30 +88,17 @@ Resources:
             RestApiId: !Ref API
             Path: /add
             Method: POST
-
-  AddLocationFunctionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-               - lambda.amazonaws.com
-            Action:
-              - sts:AssumeRole
+    Metadata:
+      BuildMethod: makefile
 
   GetLocationFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: get-location
-      CodeUri: functions/get-location
       Description: Retrieve a location by its id
-      Role: !GetAtt DBAdminFunctionRole.Arn
+      Role: !GetAtt DBAccessFunctionRole.Arn
       Layers:
+        - !Ref CommonLib
         - !Ref PostgresLib
       Environment:
         Variables:
@@ -117,14 +120,69 @@ Resources:
             RestApiId: !Ref API
             Path: /radius
             Method: GET
+    Metadata:
+      BuildMethod: makefile
+
+  LoginFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: login
+      Description: Login proxy (redirects to third-party sign-in dialog)
+      Role: !GetAtt LoginFunctionRole.Arn
+      Layers:
+        - !Ref CommonLib
+      Environment:
+        Variables:
+          SESSIONS_TABLE: !Ref SessionsTable
+          SESSION_LIFETIME_IN_DAYS: !Ref SessionLifetimeInDays
+          CLIENTID_GOOGLE: !Ref GoogleClientId
+      Events:
+        Login:
+          Type: Api
+          Properties:
+            RestApiId: !Ref API
+            Path: /login/{service}
+            Method: GET
+        Logout:
+          Type: Api
+          Properties:
+            RestApiId: !Ref API
+            Path: /logout
+            Method: GET
+    Metadata:
+      BuildMethod: makefile
+
+  AuthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: auth
+      Description: Receive authorization from third-party sign-in dialog and start an authenticated user session
+      Role: !GetAtt AuthFunctionRole.Arn
+      Layers:
+        - !Ref CommonLib
+      Environment:
+        Variables:
+          SESSIONS_TABLE: !Ref SessionsTable
+          SESSION_LIFETIME_IN_DAYS: !Ref SessionLifetimeInDays
+          USERS_TABLE: !Ref UsersTable
+          CLIENTID_GOOGLE: !Ref GoogleClientId
+          CLIENTSECRET_GOOGLE: !Ref GoogleClientSecret
+      Events:
+        Authentication:
+          Type: Api
+          Properties:
+            RestApiId: !Ref API
+            Path: /auth/{service}
+            Method: GET
+    Metadata:
+      BuildMethod: makefile
 
   DBInitFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: db-init
-      CodeUri: functions/db-init
       Description: Administrative lambda that initilizes the littermap-db database
-      Role: !GetAtt DBAdminFunctionRole.Arn
+      Role: !GetAtt DBAccessFunctionRole.Arn
       Timeout: 10
       Layers:
         - !Ref PostgresLib
@@ -137,14 +195,15 @@ Resources:
           PGPASSWORD: !Ref DBAdminPassword
           DB_WRITER_PASSWORD: !Ref DBWriterPassword
           DB_READER_PASSWORD: !Ref DBReaderPassword
+    Metadata:
+      BuildMethod: makefile
 
   DBRunFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: db-run
-      CodeUri: functions/db-run
       Description: Runs a database query (as administrator)
-      Role: !GetAtt DBAdminFunctionRole.Arn
+      Role: !GetAtt DBAccessFunctionRole.Arn
       Layers:
         - !Ref PostgresLib
       Environment:
@@ -156,6 +215,53 @@ Resources:
           DB_ADMIN_PASSWORD: !Ref DBAdminPassword
           DB_WRITER_PASSWORD: !Ref DBWriterPassword
           DB_READER_PASSWORD: !Ref DBReaderPassword
+    Metadata:
+      BuildMethod: makefile
+
+  AddLocationFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+               - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+  LoginFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+               - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+  AuthFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+               - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
 
   LogEventFunctionRole:
     Type: AWS::IAM::Role
@@ -177,10 +283,10 @@ Resources:
             Version: 2012-10-17
             Statement:
               - Action: dynamodb:PutItem
-                Resource: !GetAtt EventTable.Arn
+                Resource: !GetAtt EventsTable.Arn
                 Effect: Allow
 
-  DBAdminFunctionRole:
+  DBAccessFunctionRole:
     Type: AWS::IAM::Role
     Properties:
       ManagedPolicyArns:
@@ -206,8 +312,42 @@ Resources:
             Resource: !Sub arn:aws:rds:${AWS::Region}:${AWS::AccountId}:db:${MainDB}
             Effect: Allow
       Roles:
-        - Ref: DBAdminFunctionRole
-          Ref: AddLocationFunctionRole
+        - Ref: DBAccessFunctionRole
+        - Ref: AddLocationFunctionRole
+
+  AllowUsersAccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: allow-users-access
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            Resource: !GetAtt UsersTable.Arn
+            Effect: Allow
+      Roles:
+        - Ref: AuthFunctionRole
+
+  AllowSessionsAccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: allow-sessions-access
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            Resource: !GetAtt SessionsTable.Arn
+            Effect: Allow
+      Roles:
+        - Ref: LoginFunctionRole
+        - Ref: AuthFunctionRole
+        - Ref: AddLocationFunctionRole
 
   AllowLogEventPolicy:
     Type: AWS::IAM::Policy
@@ -220,6 +360,8 @@ Resources:
             Resource: !GetAtt LogEventFunction.Arn
             Effect: Allow
       Roles:
+        - Ref: LoginFunctionRole
+        - Ref: AuthFunctionRole
         - Ref: AddLocationFunctionRole
 
   # Main database that stores the world
@@ -239,11 +381,44 @@ Resources:
       MasterUsername: !Ref DBAdminUser
       MasterUserPassword: !Ref DBAdminPassword
 
-  # Event log
-  EventTable:
+  # Users
+  UsersTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: littermap-events
+      TableName: users
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: !Ref UsersTableReadCapacity
+        WriteCapacityUnits: !Ref UsersTableWriteCapacity
+
+  # Sessions
+  SessionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: sessions
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+      ProvisionedThroughput:
+        ReadCapacityUnits: !Ref SessionsTableReadCapacity
+        WriteCapacityUnits: !Ref SessionsTableWriteCapacity
+
+  # Event log
+  EventsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: event-log
       AttributeDefinitions:
         - AttributeName: date_key
           AttributeType: S
@@ -314,12 +489,38 @@ Parameters:
     AllowedPattern: "[^\\s@\"\\/]*"
     ConstraintDescription: 'The password must be 8 to 128 characters and can include any printable ASCII character except "/", """, or "@"'
     Default: observer
+  GoogleClientId:
+    Description: Client ID issued by Google for third-party sign-in authentication
+    Type: String
+  GoogleClientSecret:
+    Description: Client secret issued by Google for third-party sign-in authentication
+    Type: String
+  UsersTableReadCapacity:
+    Description: Users table provisioned read capacity
+    Type: Number
+    Default: 1
+  UsersTableWriteCapacity:
+    Description: Users table provisioned write capacity
+    Type: Number
+    Default: 1
+  SessionLifetimeInDays:
+    Description: How many days will browser sessions expire after they were created
+    Type: Number
+    Default: 3
+  SessionsTableReadCapacity:
+    Description: Session table provisioned read capacity
+    Type: Number
+    Default: 1
+  SessionsTableWriteCapacity:
+    Description: Session table provisioned write capacity
+    Type: Number
+    Default: 1
   EventLogReadCapacity:
-    Description: Event log database provisioned read capacity
+    Description: Event log table provisioned read capacity
     Type: Number
     Default: 1
   EventLogWriteCapacity:
-    Description: Event log database provisioned write capacity
+    Description: Event log table provisioned write capacity
     Type: Number
     Default: 1
 

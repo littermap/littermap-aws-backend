@@ -110,9 +110,14 @@ case $1 in
 
     logstreams=$(aws logs describe-log-streams --log-group-name "/aws/lambda/$2" --query 'logStreams[*].logStreamName' | jq -r '.[-1]')
 
-    for i in $logstreams; do
-      aws logs get-log-events --log-group-name "/aws/lambda/$2" --log-stream-name $i | jq '.events[]'
-    done
+    if [ -z $logstreams ] ; then
+      echo
+      echo "No logs for this function"
+    else
+      for i in $logstreams; do
+        aws logs get-log-events --log-group-name "/aws/lambda/$2" --log-stream-name $i | jq '.events[]'
+      done
+    fi
     ;;
 
   "rds-db-hibernate-instance" ) # args: instance-id
@@ -185,7 +190,7 @@ case $1 in
     # Convert today or given UTC date to epoch time
     date=$(date --date=${2:-$(date --utc +"%Y-%m-%d")} --utc +%s)
 
-    aws dynamodb query --table-name littermap-events --key-condition-expression 'date_key = :date' --expression-attribute-values "{\":date\": {\"S\": \"$date\"}}" --scan-index-forward | jq -r '.Items[] | [.timestamp.S, .event.M.message.S] | join(" :: ")'
+    aws dynamodb query --table-name event-log --key-condition-expression 'date_key = :date' --expression-attribute-values "{\":date\": {\"S\": \"$date\"}}" --scan-index-forward | jq -r '.Items[] | [.timestamp.S, .event.M.message.S] | join(" :: ")'
     ;;
 
   "stack-cancel-update" ) # args: [stack-name]
@@ -214,6 +219,14 @@ case $1 in
       aws service-quotas list-services | jq -r ".Services[].ServiceCode"
     else
       aws service-quotas list-service-quotas --service-code $service
+    fi
+    ;;
+
+  "lint" )
+    if ! command -v jshint &>/dev/null ; then
+      echo Install jshint to use this command
+    else
+      jshint $(find functions/ -name '*.js')
     fi
     ;;
 

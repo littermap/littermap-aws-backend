@@ -12,10 +12,12 @@
 //
 
 const postgres = require('postgres')
-const lambda = new (require('aws-sdk/clients/lambda'))()
 
-exports.handler = async function(event, context) {
-  let status = 200, res
+const { ensureSession } = require('/opt/nodejs/lib/middleware/session')
+const { logEvent } = require('/opt/nodejs/lib/eventlog')
+
+exports.handler = ensureSession( async (event, context) => {
+  let status, res
 
   let lat, lon
 
@@ -26,7 +28,7 @@ exports.handler = async function(event, context) {
     res = { error: "Post data must be valid JSON" }
   }
 
-  if (status === 200) {
+  if (!status) {
     if (typeof lat !== 'number' || typeof lon !== 'number' ) {
       status = 422
       res = { error: "{lat, lon} must be numbers" }
@@ -34,35 +36,52 @@ exports.handler = async function(event, context) {
       status = 422
       res = { error: "{lat, lon} must be realistic" }
     } else {
+      // Logged in user or "anonymous" contributor
+      let author = event.session.who ? "'" + event.session.who.id + "'" : 'NULL'
+
       const pg = postgres()
 
       try {
-        let [result] = await pg.unsafe(`INSERT INTO world.locations(lat,lon,geo) VALUES(${lat},${lon},ST_GeomFromText('POINT(${lat} ${lon})', 4326)) RETURNING id;`)
+        let [result] = await pg.unsafe(
+          'INSERT INTO world.locations(lat,lon,geo,created_by) ' +
+          'VALUES(' +
+            lat + ',' +
+            lon + ',' +
+            `ST_GeomFromText('POINT(${lat} ${lon})', 4326),` +
+            author + ') ' +
+          'RETURNING id;'
+        )
         res = { id: result.id }
       } catch(e) {
         status = 500
-        res = { error: e.message }
+        res = { error: "Failed to store location in the main database", reason: e.message }
       } finally {
         pg.end()
 
-        let response = await lambda.invokeAsync({
-          FunctionName: 'log-event',
-          InvokeArgs: JSON.stringify({
-            body: {
-              event_type: "message",
-              message: "Somebody added a location with id " + res.id + " and coordinates " + lat + ", " + lon
-            }
-          })
-        }).promise()
+        let who = event.session.who ? `User ${event.session.who.email}` : 'Somebody'
 
-        if (response.Status !== 202)
-          res = { ...res, warning: "Could not invoke function to log this event" }
+        if (res.id) {
+          await logEvent({
+            type: "location",
+            action: "added",
+            location_id: res.id,
+            message: `${who} added a location with id ${res.id} and coordinates ${lat},${lon}`
+          })
+        } else {
+          await logEvent({
+            type: "location",
+            action: "error",
+            message: `${who} tried to add a location  coordinates ${lat},${lon}`
+          })
+        }
       }
     }
   }
+
+  status = status || 201 // "New resource created"
 
   return {
     statusCode: status,
     body: JSON.stringify(res)
   }
-}
+} )

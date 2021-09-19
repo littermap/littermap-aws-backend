@@ -5,8 +5,10 @@ Serverless cloud back-end for the [Litter Map](https://github.com/earthstewards/
 - [Amazon API Gateway](https://aws.amazon.com/api-gateway/) REST endpoints
 - [AWS Lambda](https://aws.amazon.com/lambda/) serverless back-end logic
 - [Amazon RDS](https://aws.amazon.com/rds/) relational database using [PostgreSQL](https://www.postgresql.org/) with [PostGIS](https://postgis.net/) to store global locations
-- [Amazon DynamoDB](https://aws.amazon.com/dynamodb/) fast and flexible database for event logs
-- Stack deployment with [AWS CloudFormation](https://aws.amazon.com/cloudformation/)
+- [Amazon DynamoDB](https://aws.amazon.com/dynamodb/) fast and flexible database for user accounts, device sessions and event logs
+- Serverless stack deployment with [AWS CloudFormation](https://aws.amazon.com/cloudformation/)
+- Session based user authentication and access control
+- Sign-in and user identity with [Google Identity API](https://developers.google.com/identity/protocols/oauth2) (extendable to support other providers)
 
 ## Requirements
 
@@ -14,6 +16,7 @@ Serverless cloud back-end for the [Litter Map](https://github.com/earthstewards/
 - [sam-cli](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html) (1.29.0 or later) (for managing the serverless stack deployment)
 - [jq](https://stedolan.github.io/jq/) (1.5 or later) (for parsing JSON)
 - [yarn](https://yarnpkg.com/) (for nodejs dependencies)
+- [jshint](https://github.com/jshint/jshint/blob/master/docs/install.md) for linting JavaScript
 - [docker](https://docs.docker.com/get-docker/) (for simulating the infrastructure to test functions locally)
 
 ## Software involved
@@ -22,9 +25,10 @@ Serverless cloud back-end for the [Litter Map](https://github.com/earthstewards/
 
 ## Useful utilities
 
-- [awslogs](https://github.com/jorgebastida/awslogs) for viewing AWS logs
+- [awslogs](https://github.com/jorgebastida/awslogs) or [apilogs](https://github.com/rpgreen/apilogs) for viewing AWS logs
 - [httpie](https://httpie.io/docs) for making HTTP requests
-- [geocode](https://github.com/alexreisner/geocoder#command-line-interface) for address lookups from the command line
+- [cookie editor](https://cookie-editor.cgagnier.ca/)
+- [geocode](https://github.com/alexreisner/geocoder#command-line-interface) utility for address lookups from the command line
 
 ## How to deploy
 
@@ -40,6 +44,8 @@ With this information on hand, configure the aws-cli utility with the access key
 
 - `aws configure`
 
+If you've already done that before for another deployment, take a look at [named profiles](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html).
+
 Your credentials will now be stored in a local file `~/.aws/credentials` and the AWS command line tools will now be able to execute commands on behalf of this account.
 
 If this is a fresh clone of this source code repository, prepare the configuration files by running:
@@ -50,7 +56,7 @@ Prepare the stack template and function code for deployment:
 
 - `sam build` ([what this does](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-build.html))
 
-Deploy the stack:
+Deploy the stack (ignore values you don't know for now):
 
 - `sam deploy -g` ([what this does](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-deploy.html))
 
@@ -62,27 +68,52 @@ Perform first-time initialization on the littermap database:
 
 - `./manage rds-db-init`
 
-This will enable PostGIS and create tables and access roles.
+This will turn on PostGIS and create tables and access roles.
 
-## Using the running service
+## Configure Sign-in with Google
+
+- [Register](https://console.cloud.google.com/apis/credentials/consent/) this application with Google's API services and configure the consent screen
+- Create an OAuth client profile in Google's [OAuth configuration utility](https://console.cloud.google.com/apis/credentials/oauthclient?)
+- For `Application type` choose `Web application`
+- Under `Authorized redirect URIs` add the API endpoint URL with `/auth/google` added at the end
+- Google will issue a `Client ID` and `Client Secret`
+- Run `sam deploy -g` and specify those values when prompted
+
+## Interacting with the service
+
+In the following instructions, replace `$BASE` with the API URL that looks something like:
+
+- `https://2lrvdv0r03.execute-api.us-east-1.amazonaws.com/dev/`
 
 The active URL for the deployed API can be viewed by running:
 
 - `./manage list-api-urls`
 
-Add a location (replace URL with yours):
+Add a location:
 
-- `echo '{"lat":22.31258,"lon":114.04127}' | http -v POST https://so3kybq7z6.execute-api.us-east-1.amazonaws.com/dev/add`
+- `echo '{"lat":22.3126,"lon":114.0413}' | http -v POST $BASE/add`
 
 Retrieve a location:
 
-- `http -v https://so3kybq7z6.execute-api.us-east-1.amazonaws.com/dev/id/1`
+- `http -v $BASE/id/1`
+
+Log in (with Google):
+
+- Execute this in a browser: `$BASE/login/google`
+
+Add a location as a logged in user (get the session value from the `Set-Cookie` reponse header):
+
+- `echo '{"lat"-26.049:,"lon":31.714}' | http -v POST $BASE/add "Cookie:session=cbdaf7784f85381b96a219c7"`
+
+Log out:
+
+- In a browser: `$BASE/logout`
 
 View today's event log (in UTC):
 
 - `./manage event-log`
 
-View event log for any particular day (in UTC):
+View event log for any particular day (specified in UTC):
 
 - `./manage event-log 2021-12-25`
 
@@ -134,7 +165,7 @@ To deploy changes, run:
 
 ### Modifying the serverless stack definition
 
-After making adjustments to the stack definition in `template.yml`, check it for errors with:
+After making adjustments to the stack definition in `template.yml`, optionally check it for errors with:
 
 - `sam validate`
 
@@ -154,8 +185,8 @@ To learn more about the deployment process and options run:
 
 ## Development tips
 
-- For quick iteration, bind a shell alias for `sam build && sam deploy`.
-- Test javascript code with [jshint](https://github.com/jshint/jshint/blob/master/docs/install.md) before deploying
+- For quick iteration, bind a shell alias for `sam build && sam deploy`
+- Test javascript code with `./manage lint` before deploying functions
 
 ## Knowledge resources
 
@@ -166,6 +197,8 @@ To learn more about the deployment process and options run:
 - [Brief introduction to AWS SAM](https://youtu.be/MipjLaTp5nA)
 - [Detailed presentation on AWS SAM deployment](https://youtu.be/CIdUU6rNdk4)
 - [Learn to build serverless applications](https://youtu.be/EBSdyoO3goc?list=PLkHoRc4IcLDrgUpLKT7NTJFTM46Gk0cjZ) (playlist)
+- [Database design patterns for DynamoDB](https://youtu.be/HaEPXoXVf2k?t=164)
+- [Fundamentals of session and token based authentication](https://youtu.be/2PPSXonhIck)
 
 #### Reading
 
@@ -194,6 +227,7 @@ Used as the main database to store global locations
 - [Cloning RDS instances for testing](https://blog.dmcquay.com/devops/2015/09/18/cloning-rds-instances-for-testing.html)
 - [Database authentication with Amazon RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/database-authentication.html)
 - [Using schemas in a PostgreSQL database](https://www.postgresql.org/docs/current/ddl-schemas.html)
+- [PostgreSQL NULL values](https://www.tutorialspoint.com/postgresql/postgresql_null_values.htm)
 - [Using transaction blocks in PostgreSQL](https://www.postgresql.org/docs/current/sql-begin.html)
 - [Connecting to Postgres using node-postgres](https://node-postgres.com/features/connecting)
 - [Suggestions on what not to do with PostgreSQL](https://shabaam.co/postgresql-now-utc/)
@@ -212,27 +246,50 @@ Auxiliary database used for event logging
 - [Best practices for designing DynamoDB paritition keys](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-partition-key-design.html)
 - [Choosing the right DynamoDB partition key](https://aws.amazon.com/blogs/database/choosing-the-right-dynamodb-partition-key/)
 - [Best practices for designing and architecting with DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/best-practices.html)
+- [Letting items expire by setting the TTL attribute](https://aws.amazon.com/premiumsupport/knowledge-center/ttl-dynamodb/)
+- [Formatting an item's TTL attribute](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/time-to-live-ttl-before-you-start.html#time-to-live-ttl-before-you-start-formatting)
 - [Hands on examples with DynamoDB](https://cloudaffaire.com/primary-key-in-dynamodb/)
 - [Using DynamoDB with AWS CLI](https://dynobase.dev/dynamodb-cli-query-examples/)
 - [How to back up and restore DynamoDB tables](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/backuprestore_HowItWorks.html)
 - [The three main performance limits of DynamoDB](https://www.alexdebrie.com/posts/dynamodb-limits/)
+- [Distributed locking](https://formidable.com/blog/2020/distributed-locking/)
 
 ### Technical guides
 
-- [Create a Lambda funciton with AWS command line interface](https://medium.com/swlh/create-a-lambda-function-with-aws-command-line-interface-55e5f2af92e1)
+- [Create a Lambda function with AWS command line interface](https://medium.com/swlh/create-a-lambda-function-with-aws-command-line-interface-55e5f2af92e1)
 - [AWS Lambda python demo using AWS CLI](https://medium.com/@schogini/aws-lambda-python-demo-using-aws-cli-5b088270784e)
 - [AWS APIGateway and Lambda - a GET method CLI demo](https://medium.com/@schogini/aws-apigateway-and-lambda-a-get-mehod-cli-demo-8a05e82df275)
 - [AWS API gateway permission to invoke Lambda functions](https://medium.com/@jun711.g/aws-api-gateway-invoke-lambda-function-permission-6c6834f14b61)
+- [Correctly invoke HTTP from AWS Lambda without waiting](https://www.sensedeep.com/blog/posts/stories/lambda-fast-http.html)
+- [Sharing code between Lambda functions using Layers](https://www.jijutm.com/aws/refactored-a-lambda-heap-to-use-layers/)
+- [Overview of user authentication with OAuth](https://www.nylas.com/blog/integrate-google-oauth)
+- [Implementing OAuth2 authentication](https://discordjs.guide/oauth2/#a-quick-example)
 
 ### Technical articles
 
+- [Basics of maintaining user sessions with cookies](https://web.stanford.edu/~ouster/cgi-bin/cs142-fall10/lecture.php?topic=cookie)
+- [Distributed session management in the cloud](https://aws.amazon.com/caching/session-management/)
 - [High performance storage strategy for time series data](https://apprize.best/data/series/4.html)
+- [Caching at scale](https://d0.awsstatic.com/whitepapers/performance-at-scale-with-amazon-elasticache.pdf) [pdf]
+
+### More information
+
+- [Using your Google account to sign in to apps or services](https://support.google.com/accounts/answer/112802)
+- [Can an AJAX response set a cookie](https://stackoverflow.com/questions/3340797/can-an-ajax-response-set-a-cookie#3340818)
+
+### Security
+
+- [Protecting your users from cross-site scripting exploits](https://en.wikipedia.org/wiki/Cross-site_scripting#Exploit_examples)
+- [Protecting your users from cross-site request forgery](https://en.wikipedia.org/wiki/Cross-site_request_forgery#Example)
+- [Using an unguessable state parameter to protect against hijacking of the authentication process](https://security.stackexchange.com/questions/203022/oauth-2-state-token-and-protect-csrf)
 
 ### Reference
 
 - [AWS terminology glossary](https://docs.aws.amazon.com/general/latest/gr/glos-chap.html)
 - [CloudFormation Ref and GetAtt lookup](https://theburningmonk.com/cloudformation-ref-and-getatt-cheatsheet/)
-- [Auhentication with Google Identity](https://developers.google.com/identity/protocols/oauth2/openid-connect)
+- [Authentication with Google Identity](https://developers.google.com/identity/protocols/oauth2/openid-connect)
+- [HTTP status codes](https://ddg.gg?q=http+status+codes+cheatsheet)
+- [Reserved words in DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ReservedWords.html)
 
 #### Cheatsheets
 
@@ -253,3 +310,5 @@ Auxiliary database used for event logging
 - [Your RDS database instances](https://console.aws.amazon.com/rds/home#databases:)
 - [CloudWatch logs](https://console.aws.amazon.com/cloudwatch/home#logsV2:log-groups)
 - [Identity and Access Management](https://console.aws.amazon.com/iam/)
+- [Google account app permissions](https://myaccount.google.com/permissions)
+- [Markdown previewer](https://mdpreviewer.github.io/)

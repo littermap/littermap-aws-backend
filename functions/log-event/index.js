@@ -14,13 +14,14 @@
 const dynamo = new (require('aws-sdk/clients/dynamodb').DocumentClient)()
 
 exports.handler = async function(event, context) {
-  let status = 200, res
+  let status, res
 
   // example body:
   //
   // {
-  //   "event_type": "message",
-  //   "message": "..."
+  //   "type": "account",
+  //   "action": "created"
+  //   "message": "New account created: 1234567890"
   // }
 
   let input
@@ -36,7 +37,7 @@ exports.handler = async function(event, context) {
     }
   }
 
-  if (status === 200) {
+  if (!status) {
     if (typeof input.message !== "string") {
       status = 422
       res = { error: '"message" is required' }
@@ -63,7 +64,7 @@ exports.handler = async function(event, context) {
   }
 
   return {
-    statusCode: status,
+    statusCode: status || 200,
     body: JSON.stringify(res)
   }
 }

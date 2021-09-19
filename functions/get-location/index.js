@@ -8,25 +8,31 @@
 // /radius?lat=40.77&lon=-73.97&r=0.8
 //
 
+const { done } = require('/opt/nodejs/lib/endpoint')
+const { check_isNumeric, check_isPositiveInteger } = require('/opt/nodejs/lib/validation')
+
 const postgres = require('postgres')
 
 exports.handler = async function(event, context) {
-  let s = { status: 200 }
-  let query
+  let state = {}, query
 
   switch (event.resource) {
     case "/id/{id}":
       let id = event.pathParameters.id
 
-      if (check_isPositiveInteger(s, "id", id)) {
+      if (check_isPositiveInteger(state, "id", id)) {
         query = async function(pg) {
-          let [location] = await pg`SELECT id,created_at,lat,lon FROM world.locations WHERE id = ${id};`
+          let [location] = await pg.unsafe(
+            'SELECT id,created_at,created_by,lat,lon ' +
+            'FROM world.locations ' +
+            `WHERE id = ${id};`
+          )
 
           if (!location) {
-            s.status = 404
-            s.res = { message: "Not found" }
+            state.status = 404
+            state.res = { message: "Not found" }
           } else {
-            s.res = { location }
+            state.res = { location }
           }
         }
       }
@@ -36,53 +42,34 @@ exports.handler = async function(event, context) {
     case "/radius":
       let { lat, lon, r } = event.queryStringParameters
 
-      if (check_isNumeric(s, "lat", lat) &&
-          check_isNumeric(s, "lon", lon) &&
-          check_isNumeric(s, "r", r)) {
+      if (check_isNumeric(state, "lat", lat) &&
+          check_isNumeric(state, "lon", lon) &&
+          check_isNumeric(state, "r", r)) {
         query = async (pg) => {
-          let locations = await pg.unsafe(`SELECT id,created_at,lat,lon FROM world.locations WHERE ST_DWithin(geo, ST_GeomFromText('POINT(${lat} ${lon})', 4326), ${r});`)
-          s.res = { locations }
+          let locations = await pg.unsafe(
+            'SELECT id,created_at,created_by,lat,lon ' +
+            'FROM world.locations ' +
+            `WHERE ST_DWithin(geo, ST_GeomFromText('POINT(${lat} ${lon})', 4326), ${r});`
+          )
+          state.res = { locations }
         }
       }
   }
 
-  if (s.status === 200) {
+  if (!state.status) {
     const pg = postgres()
 
     try {
       await query(pg)
-    } catch(error) {
-      s.status = 500
-      s.res = { error }
+    } catch(e) {
+      state.status = 500
+      state.res = { error: "Failed to query locations database", reason: e.message }
     } finally {
       pg.end()
     }
   }
 
-  return done(s)
-}
+  state.status = state.status || 200 // "OK"
 
-function check(s, cond, message) {
-  if (!cond()) {
-    s.status = 422
-    s.res = { error: message }
-    return false
-  }
-
-  return true
-}
-
-function check_isNumeric(s, name, val) {
-  return check(s, () => /^-?\d+\.?\d*$/.test(val), `${name} is expected to be numeric`)
-}
-
-function check_isPositiveInteger(s, name, val) {
-  return check(s, () => /^\d+$/.test(val), `${name} is expected to be an integer`)
-}
-
-function done(s) {
-  return {
-    statusCode: s.status,
-    body: JSON.stringify(s.res)
-  }
+  return done(state)
 }
