@@ -1,4 +1,4 @@
-# This file describes the serverless stack that serves as the back-end for the Littermap application.
+# This file describes the serverless stack that serves as the back-end for the Litter Map application.
 #
 # Quick reference links:
 #
@@ -24,8 +24,9 @@ Resources:
     Type: AWS::Serverless::Api
     Properties:
       Name: littermap-api
+      Description: REST API for the Litter Map backend
       StageName: !Ref DeploymentStage
-      OpenApiVersion: 3.0.3 # See: https://spec.openapis.org/oas/v3.0.3#introduction
+      OpenApiVersion: 3.0.3
       Auth:
         Authorizers: []
 
@@ -114,12 +115,26 @@ Resources:
             RestApiId: !Ref API
             Path: /id/{id}
             Method: GET
+            RequestParameters:
+              - method.request.path.id:
+                  Required: true
+                  Caching: false
         GetLocationsByRadius:
           Type: Api
           Properties:
             RestApiId: !Ref API
             Path: /radius
             Method: GET
+            RequestParameters:
+              - method.request.querystring.lat:
+                  Required: true
+                  Caching: false
+              - method.request.querystring.lon:
+                  Required: true
+                  Caching: false
+              - method.request.querystring.r:
+                  Required: true
+                  Caching: false
     Metadata:
       BuildMethod: makefile
 
@@ -143,6 +158,10 @@ Resources:
             RestApiId: !Ref API
             Path: /login/{service}
             Method: GET
+            RequestParameters:
+              - method.request.path.service:
+                  Required: true
+                  Caching: false
         Logout:
           Type: Api
           Properties:
@@ -174,6 +193,10 @@ Resources:
             RestApiId: !Ref API
             Path: /auth/{service}
             Method: GET
+            RequestParameters:
+              - method.request.path.service:
+                  Required: true
+                  Caching: false
     Metadata:
       BuildMethod: makefile
 

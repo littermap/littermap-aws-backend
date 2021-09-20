@@ -46,11 +46,23 @@ case $1 in
     aws apigateway get-rest-apis --output json
     ;;
 
-  "list-api-urls" )
-    apis=$($0 list-apis | jq -r ".items[].id")
+  "list-api-ids" )
+    $0 list-apis | jq -r ".items[].id"
+    ;;
 
-    for api in $apis ; do
-      for stage in $(aws apigateway get-stages --rest-api-id $api | jq -r ".item[].stageName"); do
+  "list-api-stages" ) # args: [api-id]
+    api=${2:-$($0 list-api-ids | head -1)}
+    aws apigateway get-stages --rest-api-id $api
+    ;;
+
+  "list-api-stage-names" ) # args: [api-id]
+    api=${2:-$($0 list-api-ids | head -1)}
+    $0 list-api-stages $api | jq -r '.item[] | .stageName'
+    ;;
+
+  "list-api-urls" )
+    for api in $($0 list-api-ids); do
+      for stage in $($0 list-api-stage-names $api); do
         echo https://$api.execute-api.$region.amazonaws.com/$stage/
       done
     done
@@ -199,6 +211,15 @@ case $1 in
 
   "stack-delete" ) # args: [stack-name]
     sam delete --stack-name ${2:-$(get_stack_name)}
+    ;;
+
+  "api-export" ) # args: [api-id] [stage]
+    out=$(mktemp)
+    api=${2:-$($0 list-api-ids | head -1)}
+    stage=${3:-$($0 list-api-stage-names $api | head -1)}
+    aws apigateway get-export --rest-api-id $api --stage-name $stage --export-type oas30 $out
+
+    cat $out
     ;;
 
   "make-password" )

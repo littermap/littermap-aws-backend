@@ -119,6 +119,14 @@ View event log for any particular day (specified in UTC):
 
 ## Administration
 
+### API management
+
+Export the API schema:
+
+- `./manage api-export`
+
+### Database interaction
+
 Perform arbitrary queries on the database by running:
 
 - `./manage rds-db-run <query> [<user>]` (user is: admin, writer, reader; default: admin)
@@ -187,6 +195,7 @@ To learn more about the deployment process and options run:
 
 - For quick iteration, bind a shell alias for `sam build && sam deploy`
 - Test javascript code with `./manage lint` before deploying functions
+- Colorize JSON output with `jq`, for example: `./manage api-export | jq .`
 
 ## Knowledge resources
 
@@ -256,6 +265,9 @@ Auxiliary database used for event logging
 
 ### Technical guides
 
+- [Build a serverless website with SAM on AWS (part 1)](https://izifortune.com/serverless-website-sam-aws/)
+- [Build a serverless website with SAM on AWS (part 2)](https://izifortune.com/serverless-website-sam-aws-part-2/)
+- [Build a serverless API with AWS Gateway and Lambda](https://thenewstack.io/build-a-serverless-api-with-aws-gateway-and-lambda/)
 - [Create a Lambda function with AWS command line interface](https://medium.com/swlh/create-a-lambda-function-with-aws-command-line-interface-55e5f2af92e1)
 - [AWS Lambda python demo using AWS CLI](https://medium.com/@schogini/aws-lambda-python-demo-using-aws-cli-5b088270784e)
 - [AWS APIGateway and Lambda - a GET method CLI demo](https://medium.com/@schogini/aws-apigateway-and-lambda-a-get-mehod-cli-demo-8a05e82df275)
@@ -264,6 +276,11 @@ Auxiliary database used for event logging
 - [Sharing code between Lambda functions using Layers](https://www.jijutm.com/aws/refactored-a-lambda-heap-to-use-layers/)
 - [Overview of user authentication with OAuth](https://www.nylas.com/blog/integrate-google-oauth)
 - [Implementing OAuth2 authentication](https://discordjs.guide/oauth2/#a-quick-example)
+- [Using GitLab CI/CD Pipeline to deploy AWS SAM applications](https://aws.amazon.com/blogs/apn/using-gitlab-ci-cd-pipeline-to-deploy-aws-sam-applications/)
+
+### General articles
+
+- [Programming vs software engineering](https://swizec.com/blog/what-i-learned-from-software-engineering-at-google/)
 
 ### Technical articles
 
@@ -271,6 +288,8 @@ Auxiliary database used for event logging
 - [Distributed session management in the cloud](https://aws.amazon.com/caching/session-management/)
 - [High performance storage strategy for time series data](https://apprize.best/data/series/4.html)
 - [Caching at scale](https://d0.awsstatic.com/whitepapers/performance-at-scale-with-amazon-elasticache.pdf) [pdf]
+- [Continuous integration vs continuous delivery vs continuous deployment](https://www.atlassian.com/continuous-delivery/principles/continuous-integration-vs-delivery-vs-deployment)
+- [Sharp edges in serverless](http://blog.ryangreen.ca/2019/06/18/in-the-cloud-beware-of-sharp-edges-for-there-are-many/)
 
 ### More information
 
