@@ -72,6 +72,10 @@ case $1 in
     aws rds describe-db-instances --output json
     ;;
 
+  "list-rds-db-ids" )
+    $0 list-rds-dbs | jq -r ".DBInstances[].DBInstanceIdentifier"
+    ;;
+
   "list-rds-db-endpoints" )
     $0 list-rds-dbs | jq -r ".DBInstances[].Endpoint"
     ;;
@@ -132,14 +136,60 @@ case $1 in
     fi
     ;;
 
-  "rds-db-hibernate-instance" ) # args: instance-id
+  "rds-db-action" ) # args: action [instance-id]
     args 1
-    aws rds stop-db-instance --db-instance-identifier $2
+
+    if [ -z $3 ]; then
+      ids=$($0 list-rds-db-ids)
+
+      if [ -z "$ids" ]; then
+        echo No databases found
+      elif [ $(echo "$ids" | wc -l) -gt 1 ]; then
+        echo Found more than one database, please specify an instance id:
+        echo
+        echo "$ids"
+      else
+        id="$ids"
+      fi
+    else
+      id=$3
+    fi
+
+    if [ -n "$id" ]; then
+      aws rds $2 --db-instance-identifier $id
+    else
+      exit 1
+    fi
     ;;
 
-  "rds-db-wake-instance" ) # args: instance-id
-    args 1
-    aws rds start-db-instance --db-instance-identifier $2
+  "rds-db-status" ) # args: [instance-id]
+    if [ -n "$2" ]; then
+      id="--db-instance-identifier $2"
+    fi
+
+    res=$(aws rds describe-db-instances $id)
+
+    echo $(echo $res | jq -r '.DBInstances[].DBName'): $(echo $res | jq -r '.DBInstances[].DBInstanceStatus')
+    ;;
+
+  "rds-db-hibernate" ) # args: [instance-id]
+    status=$($0 rds-db-action stop-db-instance $2 | jq -r '.DBInstance.DBInstanceStatus')
+
+    echo Status: $status
+    echo
+    echo This may take a while
+    echo
+    echo Check the status with: $0 rds-db-status
+    ;;
+
+  "rds-db-wake" ) # args: [instance-id]
+    status=$($0 rds-db-action start-db-instance $2 | jq -r '.DBInstance.DBInstanceStatus')
+
+    echo Status: $status
+    echo
+    echo This may take a while
+    echo
+    echo Check the status with: $0 rds-db-status
     ;;
 
   "rds-db-init" )

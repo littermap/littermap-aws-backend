@@ -50,7 +50,7 @@ Your credentials will now be stored in a local file `~/.aws/credentials` and the
 
 If this is a fresh clone of this source code repository, prepare the configuration files by running:
 
-- `./prepare`
+- `./init-config`
 
 Prepare the stack template and function code for deployment:
 
@@ -152,6 +152,14 @@ Then connect to the database: (must have [postgresql](https://www.postgresql.org
 - `psql -U {litteradmin|writer|reader} -h {host} -p {port} -d littermap -W`
 
 Type `\help` to get started.
+
+To save money while not using the database during development, it can temporarily [hibernated](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_StopInstance.html) with:
+
+- `./manage rds-db-hibernate`
+
+Wake it back up with:
+
+- `./manage rds-db-wake`
 
 ## How to remove this service from the cloud
 
