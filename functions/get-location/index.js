@@ -3,9 +3,9 @@
 //
 // /id/5
 //
-// Get locations within radius of a center:
+// Get locations within radius of a center as a GeoJSON collection:
 //
-// /radius?lat=40.77&lon=-73.97&r=0.8
+// /radius?lat=40.77&lon=-73.97&r=0.8?format=geojson
 //
 
 const { done } = require('/opt/nodejs/lib/endpoint')
@@ -18,7 +18,7 @@ exports.handler = async function(event, context) {
 
   switch (event.resource) {
     case "/id/{id}":
-      let id = event.pathParameters.id
+      let { id } = event.pathParameters
 
       if (check_isPositiveInteger(state, "id", id)) {
         query = async function(pg) {
@@ -40,7 +40,7 @@ exports.handler = async function(event, context) {
       break
 
     case "/radius":
-      let { lat, lon, r } = event.queryStringParameters
+      let { lat, lon, r, format } = event.queryStringParameters
 
       if (check_isNumeric(state, "lat", lat) &&
           check_isNumeric(state, "lon", lon) &&
@@ -51,7 +51,20 @@ exports.handler = async function(event, context) {
             'FROM world.locations ' +
             `WHERE ST_DWithin(geo, ST_GeomFromText('POINT(${lat} ${lon})', 4326), ${r});`
           )
-          state.res = { locations }
+
+          if (format === "geojson") {
+            //
+            // Support for GeoJSON feature collection format
+            //
+            let featureCollection = {
+              type: "FeatureCollection",
+              features: locations.map(locationAsGeoJSONFeature)
+            }
+
+            state.res = featureCollection
+          } else {
+            state.res = { locations }
+          }
         }
       }
   }
@@ -72,4 +85,24 @@ exports.handler = async function(event, context) {
   state.status = state.status || 200 // "OK"
 
   return done(state)
+}
+
+//
+// Transform into GeoJSON format
+//
+function locationAsGeoJSONFeature(location) {
+  let { id, lat, lon, created_at, created_by } = location
+
+  return {
+    type: "Feature",
+    id,
+    properties: {
+      created_at,
+      created_by
+    },
+    geometry: {
+      type: "Point",
+      "coordinates": [lon, lat]
+    }
+  }
 }

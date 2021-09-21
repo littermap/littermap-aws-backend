@@ -135,6 +135,9 @@ Resources:
               - method.request.querystring.r:
                   Required: true
                   Caching: false
+              - method.request.querystring.format:
+                  Required: false
+                  Caching: false
     Metadata:
       BuildMethod: makefile
 

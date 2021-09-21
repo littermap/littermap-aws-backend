@@ -309,6 +309,7 @@ Auxiliary database used for event logging
 - [Protecting your users from cross-site scripting exploits](https://en.wikipedia.org/wiki/Cross-site_scripting#Exploit_examples)
 - [Protecting your users from cross-site request forgery](https://en.wikipedia.org/wiki/Cross-site_request_forgery#Example)
 - [Using an unguessable state parameter to protect against hijacking of the authentication process](https://security.stackexchange.com/questions/203022/oauth-2-state-token-and-protect-csrf)
+- [User Authenticaiton with OpenID Connect alongside OAuth 2.0](https://oauth.net/articles/authentication/)
 
 ### Reference
 
