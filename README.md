@@ -298,6 +298,7 @@ Auxiliary database used for event logging
 - [Caching at scale](https://d0.awsstatic.com/whitepapers/performance-at-scale-with-amazon-elasticache.pdf) [pdf]
 - [Continuous integration vs continuous delivery vs continuous deployment](https://www.atlassian.com/continuous-delivery/principles/continuous-integration-vs-delivery-vs-deployment)
 - [Sharp edges in serverless](http://blog.ryangreen.ca/2019/06/18/in-the-cloud-beware-of-sharp-edges-for-there-are-many/)
+- [In-depth API gateway configuration](https://nickolaskraus.org/articles/creating-an-amazon-api-gateway-with-a-mock-integration-using-cloudformation/)
 
 ### More information
 

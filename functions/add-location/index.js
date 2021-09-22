@@ -15,26 +15,27 @@ const postgres = require('postgres')
 
 const { ensureSession } = require('/opt/nodejs/lib/middleware/session')
 const { logEvent } = require('/opt/nodejs/lib/eventlog')
+const { done } = require('/opt/nodejs/lib/endpoint')
 
 exports.handler = ensureSession( async (event, context) => {
-  let status, res
+  let state = {}
 
   let lat, lon
 
   try {
     ({ lat, lon } = JSON.parse(event.body))
   } catch(e) {
-    status = 422
-    res = { error: "Post data must be valid JSON" }
+    state.status = 422
+    state.res = { error: "Post data must be valid JSON" }
   }
 
-  if (!status) {
+  if (!state.status) {
     if (typeof lat !== 'number' || typeof lon !== 'number' ) {
-      status = 422
-      res = { error: "{lat, lon} must be numbers" }
+      state.status = 422
+      state.res = { error: "{lat, lon} must be numbers" }
     } else if(Math.abs(lat) > 90 || Math.abs(lon) > 180) {
-      status = 422
-      res = { error: "{lat, lon} must be realistic" }
+      state.status = 422
+      state.res = { error: "{lat, lon} must be realistic" }
     } else {
       // Logged in user or "anonymous" contributor
       let author = event.session.who ? "'" + event.session.who.id + "'" : 'NULL'
@@ -51,21 +52,21 @@ exports.handler = ensureSession( async (event, context) => {
             author + ') ' +
           'RETURNING id;'
         )
-        res = { id: result.id }
+        state.res = { id: result.id }
       } catch(e) {
-        status = 500
-        res = { error: "Failed to store location in the main database", reason: e.message }
+        state.status = 500
+        state.res = { error: "Failed to store location in the main database", reason: e.message }
       } finally {
         pg.end()
 
         let who = event.session.who ? `User ${event.session.who.email}` : 'Somebody'
 
-        if (res.id) {
+        if (state.res.id) {
           await logEvent({
             type: "location",
             action: "added",
-            location_id: res.id,
-            message: `${who} added a location with id ${res.id} and coordinates ${lat},${lon}`
+            location_id: state.res.id,
+            message: `${who} added a location with id ${state.res.id} and coordinates ${lat},${lon}`
           })
         } else {
           await logEvent({
@@ -78,10 +79,7 @@ exports.handler = ensureSession( async (event, context) => {
     }
   }
 
-  status = status || 201 // "New resource created"
+  state.status = state.status || 201 // "New resource created"
 
-  return {
-    statusCode: status,
-    body: JSON.stringify(res)
-  }
+  return done(state)
 } )
