@@ -228,6 +228,7 @@ To learn more about the deployment process and options run:
 - [Amazon Web Services: Overview of Security Processes](https://tdcontent.techdata.com/techsolutions/security/assets/files/aws-overview-security-processes.pdf) [pdf]
 - [AWS fundamentals cheatsheet](https://github.com/agavrel/aws_fundamentals_cheatsheet)
 - [What are the pros and cons of using third party sign-in](https://www.quora.com/What-are-the-pros-and-cons-of-using-Google-Sign-In-for-web-applications/answer/Dagmar-Timler)
+- [Selecting an AWS region for your deployment](https://raw.githubusercontent.com/solidjs/solid-realworld/master/src/store/createAgent.js)
 
 ### [Amazon RDS](https://aws.amazon.com/rds/) database
 
@@ -299,6 +300,7 @@ Auxiliary database used for event logging
 - [Continuous integration vs continuous delivery vs continuous deployment](https://www.atlassian.com/continuous-delivery/principles/continuous-integration-vs-delivery-vs-deployment)
 - [Sharp edges in serverless](http://blog.ryangreen.ca/2019/06/18/in-the-cloud-beware-of-sharp-edges-for-there-are-many/)
 - [In-depth API gateway configuration](https://nickolaskraus.org/articles/creating-an-amazon-api-gateway-with-a-mock-integration-using-cloudformation/)
+- [Understanding the basics of Cross Origin Resource Sharing policies](https://javascript.plainenglish.io/understanding-the-basics-to-fetch-credentials-863b25968ed5)
 
 ### More information
 
@@ -310,6 +312,7 @@ Auxiliary database used for event logging
 - [Protecting your users from cross-site scripting exploits](https://en.wikipedia.org/wiki/Cross-site_scripting#Exploit_examples)
 - [Protecting your users from cross-site request forgery](https://en.wikipedia.org/wiki/Cross-site_request_forgery#Example)
 - [Using an unguessable state parameter to protect against hijacking of the authentication process](https://security.stackexchange.com/questions/203022/oauth-2-state-token-and-protect-csrf)
+- [How the Access-Control-Allow-Origin header works](https://medium.com/@dtkatz/3-ways-to-fix-the-cors-error-and-how-access-control-allow-origin-works-d97d55946d9)
 - [User Authenticaiton with OpenID Connect alongside OAuth 2.0](https://oauth.net/articles/authentication/)
 
 ### Reference

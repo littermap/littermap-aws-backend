@@ -141,6 +141,29 @@ Resources:
     Metadata:
       BuildMethod: makefile
 
+  InfoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: info
+      Description: Look up privileged information
+      Role: !GetAtt InfoFunctionRole.Arn
+      Layers:
+        - !Ref CommonLib
+      Environment:
+        Variables:
+          SESSIONS_TABLE: !Ref SessionsTable
+          SESSION_LIFETIME_IN_DAYS: !Ref SessionLifetimeInDays
+          USERS_TABLE: !Ref UsersTable
+      Events:
+        GetProfileInfo:
+          Type: Api
+          Properties:
+            RestApiId: !Ref API
+            Path: /profile
+            Method: GET
+    Metadata:
+      BuildMethod: makefile
+
   LoginFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -259,6 +282,22 @@ Resources:
             Action:
               - sts:AssumeRole
 
+
+  InfoFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+               - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
   LoginFunctionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -355,6 +394,7 @@ Resources:
             Resource: !GetAtt UsersTable.Arn
             Effect: Allow
       Roles:
+        - Ref: InfoFunctionRole
         - Ref: AuthFunctionRole
 
   AllowSessionsAccessPolicy:
@@ -371,6 +411,7 @@ Resources:
             Resource: !GetAtt SessionsTable.Arn
             Effect: Allow
       Roles:
+        - Ref: InfoFunctionRole
         - Ref: LoginFunctionRole
         - Ref: AuthFunctionRole
         - Ref: AddLocationFunctionRole

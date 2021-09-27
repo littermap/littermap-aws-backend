@@ -59,9 +59,7 @@ exports.handler = ensureSession( async (event, context) => {
             }
           } )
 
-          doSync( () =>
-            v.check_isAlphaNumeric(state, auth_code, "code")
-          )
+          v.check_isAlphaNumeric(state, auth_code, "code")
 
           let response_data
 
@@ -141,13 +139,21 @@ exports.handler = ensureSession( async (event, context) => {
             try {
               let { id, email, name, given_name, locale, picture } = JSON.parse(response_data) // Not used: verified_email
 
+              let avatar
+
+              try {
+                avatar = 'g:' + picture.match( /googleusercontent.com\/(.+?)=/ )[1] // See: https://developers.google.com/people/image-sizing
+              } catch(e) {
+                avatar = ''
+              }
+
               userinfo = {
                 id: 'g:' + id,
                 name,
                 given_name,
                 email,
                 locale,
-                avatar: picture
+                avatar
               }
 
             } catch(e) {
@@ -187,10 +193,10 @@ exports.handler = ensureSession( async (event, context) => {
     }
   } )
 
-  //
-  // If user doesn't exist, add user to the database
-  //
   if (!userRecord) {
+    //
+    // If user doesn't exist, add user to the database
+    //
     await doAsync( async () => {
       let now = new Date()
 
@@ -200,6 +206,7 @@ exports.handler = ensureSession( async (event, context) => {
           Item: {
             'id': userinfo.id,
             'registered_at': now.toUTCString(),
+            'name': userinfo.name,
             'email': userinfo.email,
             'avatar': userinfo.avatar
           }
@@ -214,6 +221,32 @@ exports.handler = ensureSession( async (event, context) => {
       } catch(e) {
         state.status = 500
         state.res = { error: "Failed to create new user", reason: e.message }
+      }
+    } )
+  } else {
+    //
+    // If the user exists, update their information
+    //
+    await doAsync( async () => {
+      try {
+        await dynamo.update({
+          TableName: usersTable,
+          Key: {
+            'id': userinfo.id
+          },
+          UpdateExpression: 'SET #name=:name,email=:email,avatar=:avatar', // "name" is a reserved word
+          ExpressionAttributeNames: {
+            '#name': 'name'
+          },
+          ExpressionAttributeValues: {
+            ':name': userinfo.name,
+            ':email': userinfo.email,
+            ':avatar': userinfo.avatar
+          }
+        }).promise()
+      } catch(e) {
+        state.status = 500
+        state.res = { error: "Failed to update user information", reason: e.message }
       }
     } )
   }
@@ -236,7 +269,7 @@ exports.handler = ensureSession( async (event, context) => {
         Key: {
           'id': event.session.id
         },
-        UpdateExpression: 'SET who = :user', // "user" is a reserved word
+        UpdateExpression: 'SET who=:user', // "user" is a reserved word
         ExpressionAttributeValues: {
           ':user': event.session.who
         }
@@ -256,7 +289,12 @@ exports.handler = ensureSession( async (event, context) => {
 
   if (!state.status) {
     state.status = 200
-    state.res = { success: true }
+    state.res = {
+      profile: {
+        name: userinfo.name,
+        avatar: userinfo.avatar
+      }
+    }
   }
 
   return done(state)
