@@ -20,8 +20,8 @@ exports.handler = ensureSession( async (event, context) => {
     if (!state.status) { await step() }
   }
 
-  if (!event.session.who) { 
-    state.status = 401
+  if (!event.session.who) {
+    state.status = 200
     state.res = { message: "Not logged in" }
   } else {
     switch (event.resource) {
