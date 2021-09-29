@@ -216,6 +216,7 @@ To learn more about the deployment process and options run:
 - [Learn to build serverless applications](https://youtu.be/EBSdyoO3goc?list=PLkHoRc4IcLDrgUpLKT7NTJFTM46Gk0cjZ) (playlist)
 - [Database design patterns for DynamoDB](https://youtu.be/HaEPXoXVf2k?t=164)
 - [Fundamentals of session and token based authentication](https://youtu.be/2PPSXonhIck)
+- [Concepts of cloud security](https://youtu.be/pYHla2CQhM4)
 
 #### Reading
 

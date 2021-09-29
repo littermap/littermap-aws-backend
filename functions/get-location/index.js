@@ -10,6 +10,7 @@
 
 const { done } = require('/opt/nodejs/lib/endpoint')
 const { check_isNumeric, check_isPositiveInteger } = require('/opt/nodejs/lib/validation')
+const { md5 } = require('/opt/nodejs/lib/crypto')
 
 const postgres = require('postgres')
 
@@ -93,8 +94,8 @@ exports.handler = async function(event, context) {
 function locationAsGeoJSONFeature(location) {
   let { id, lat, lon, created_at, created_by } = location
 
-  return {
-    type: "Feature",
+  // Structure the data like a GeoJSON feature
+  feature = {
     id,
     properties: {
       created_at,
@@ -105,4 +106,12 @@ function locationAsGeoJSONFeature(location) {
       "coordinates": [lon, lat]
     }
   }
+
+  // Add a hash of the feature's properties for quick determination of its content
+  feature.properties.hash = md5(JSON.stringify(feature))
+
+  // Legit GeoJSON
+  feature.type = "Feature"
+
+  return feature
 }

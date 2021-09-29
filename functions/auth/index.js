@@ -15,7 +15,7 @@ const { logEvent } = require('/opt/nodejs/lib/eventlog')
 const { basePath, done } = require('/opt/nodejs/lib/endpoint')
 const v = require('/opt/nodejs/lib/validation')
 const { httpsGet, httpsPost, queryString } = require('/opt/nodejs/lib/net')
-const { md5 } = require('/opt/nodejs/lib/hash')
+const { md5, debase64 } = require('/opt/nodejs/lib/crypto')
 
 const sessionsTable = process.env.SESSIONS_TABLE
 const usersTable = process.env.USERS_TABLE
@@ -31,7 +31,7 @@ exports.handler = ensureSession( async (event, context) => {
     if (!state.status) { await step() }
   }
 
-  let userinfo
+  let userinfo, origin
 
   switch (event.resource) {
     case "/auth/{service}":
@@ -50,10 +50,20 @@ exports.handler = ensureSession( async (event, context) => {
           let { state: original_state, code: auth_code, scope, authuser, prompt } = event.queryStringParameters
 
           doSync( () => {
+            let secret
+
+            try {
+              original_state = debase64(original_state)
+              origin = original_state.origin
+              secret = original_state.secret
+            } catch(e) {
+              // Can't decode, definitely not valid
+            }
+
             //
             // Guard against request forgery by confirming that the returned state token has originated with the current session
             //
-            if (original_state !== md5(event.session.id)) {
+            if (secret !== md5(event.session.id)) {
               state.status = 422
               state.res = { error: "This sign-in authorization did not properly originate with the current session" }
             }
@@ -288,7 +298,14 @@ exports.handler = ensureSession( async (event, context) => {
   } )
 
   if (!state.status) {
-    state.status = 200
+    if (origin) {
+      state.status = 302
+      state.headers = {
+        'Location': origin
+      }
+    } else
+      state.status = 200
+
     state.res = {
       profile: {
         name: userinfo.name,
