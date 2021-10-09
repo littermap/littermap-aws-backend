@@ -25,7 +25,7 @@ Resources:
     Properties:
       Name: littermap-api
       Description: REST API for the Litter Map backend
-      StageName: !Ref DeploymentStage
+      StageName: !Ref APIStageName
       OpenApiVersion: 3.0.3
       Auth:
         Authorizers: []
@@ -501,10 +501,10 @@ Resources:
         WriteCapacityUnits: !Ref EventLogWriteCapacity
 
 Parameters:
-  DeploymentStage:
-    Description: Deployment stage
+  APIStageName:
+    Description: API stage
     Type: String
-    Default: dev
+    Default: api
   DBInstanceClass:
     Description: Database instance class
     Type: String

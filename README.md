@@ -83,7 +83,7 @@ This will turn on PostGIS and create tables and access roles.
 
 In the following instructions, replace `$BASE` with the API URL that looks something like:
 
-- `https://2lrvdv0r03.execute-api.us-east-1.amazonaws.com/dev/`
+- `https://2lrvdv0r03.execute-api.us-east-1.amazonaws.com/api/`
 
 The active URL for the deployed API can be viewed by running:
 
@@ -314,6 +314,7 @@ Auxiliary database used for event logging
 - [Protecting your users from cross-site request forgery](https://en.wikipedia.org/wiki/Cross-site_request_forgery#Example)
 - [Using an unguessable state parameter to protect against hijacking of the authentication process](https://security.stackexchange.com/questions/203022/oauth-2-state-token-and-protect-csrf)
 - [How the Access-Control-Allow-Origin header works](https://medium.com/@dtkatz/3-ways-to-fix-the-cors-error-and-how-access-control-allow-origin-works-d97d55946d9)
+- [In-depth overview of CORS](https://www.moesif.com/blog/technical/cors/Authoritative-Guide-to-CORS-Cross-Origin-Resource-Sharing-for-REST-APIs/)
 - [User Authenticaiton with OpenID Connect alongside OAuth 2.0](https://oauth.net/articles/authentication/)
 
 ### Reference

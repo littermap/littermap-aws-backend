@@ -9,7 +9,7 @@ const dynamo = new (require('aws-sdk/clients/dynamodb').DocumentClient)()
 
 const { ensureSession } = require('/opt/nodejs/lib/middleware/session')
 const { logEvent } = require('/opt/nodejs/lib/eventlog')
-const { baseUrl, done } = require('/opt/nodejs/lib/endpoint')
+const { baseUrl, getReferrer, done } = require('/opt/nodejs/lib/endpoint')
 const { getAttributeAnyCase } = require('/opt/nodejs/lib/misc')
 const { md5, base64 } = require('/opt/nodejs/lib/crypto')
 
@@ -25,16 +25,23 @@ exports.handler = ensureSession( async (event, context) => {
 
       switch (service) {
         case "google":
-          let referrer = getAttributeAnyCase(event.headers, 'referer')
+          let origin = getReferrer(event)
 
           let stateToken = {
             secret: md5(event.session.id),
-            origin: referrer
+            origin
           }
+
+          //
+          // The API may be invoked directly (as in while testing during development), in which
+          // case there won't be a referrer header in the request, so in that case use the host
+          // information from the lamdbda invocation event object.
+          //
+          let redirect = origin ? origin + event.requestContext.stage : baseUrl(event)
 
           dest_url =
             'https://accounts.google.com/o/oauth2/v2/auth' +
-            '?redirect_uri=' + baseUrl(event) + '/auth/google' +
+            '?redirect_uri=' + redirect + '/auth/google' +
             '&client_id=' + googleClientId +
             '&state=' + base64(stateToken) +
             '&scope=profile%20email' +

@@ -12,7 +12,7 @@ const dynamo = new (require('aws-sdk/clients/dynamodb').DocumentClient)()
 
 const { ensureSession } = require('/opt/nodejs/lib/middleware/session')
 const { logEvent } = require('/opt/nodejs/lib/eventlog')
-const { basePath, done } = require('/opt/nodejs/lib/endpoint')
+const { getReferrer, done } = require('/opt/nodejs/lib/endpoint')
 const v = require('/opt/nodejs/lib/validation')
 const { httpsGet, httpsPost, queryString } = require('/opt/nodejs/lib/net')
 const { md5, debase64 } = require('/opt/nodejs/lib/crypto')
@@ -78,7 +78,8 @@ exports.handler = ensureSession( async (event, context) => {
             // The current URL needs to be included with the next API call and it has to be the same as the one used to
             // invoke this function, otherwise Google will refuse to issue an access token
             //
-            let redirect_uri = basePath(event)
+            let redirect_uri =
+              (origin ? origin + event.requestContext.stage : baseUrl(event)) + event.path
 
             //
             // Use the authorization code in combination with the client secret given to this application by Google to
