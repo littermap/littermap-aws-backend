@@ -11,8 +11,7 @@
 const { done } = require('/opt/nodejs/lib/endpoint')
 const { check_isNumeric, check_isPositiveInteger } = require('/opt/nodejs/lib/validation')
 const { md5 } = require('/opt/nodejs/lib/crypto')
-
-const postgres = require('postgres')
+const { pgInit } = require('/opt/nodejs/lib/postgres')
 
 exports.handler = async function(event, context) {
   let state = {}, query
@@ -23,11 +22,21 @@ exports.handler = async function(event, context) {
 
       if (check_isPositiveInteger(state, "id", id)) {
         query = async function(pg) {
-          let [location] = await pg.unsafe(
-            'SELECT id,created_at,created_by,lat,lon ' +
-            'FROM world.locations ' +
-            `WHERE id = ${id};`
-          )
+          let [location] = await pg`
+            SELECT
+              id,
+              created_at,
+              created_by,
+              lat,
+              lon,
+              description,
+              level
+            FROM world.locations
+            WHERE
+              id = ${id}
+          `
+
+          location = normalizeLocation(location)
 
           if (!location) {
             state.status = 404
@@ -47,11 +56,21 @@ exports.handler = async function(event, context) {
           check_isNumeric(state, "lon", lon) &&
           check_isNumeric(state, "r", r)) {
         query = async (pg) => {
-          let locations = await pg.unsafe(
-            'SELECT id,created_at,created_by,lat,lon ' +
-            'FROM world.locations ' +
-            `WHERE ST_DWithin(geo, ST_GeomFromText('POINT(${lat} ${lon})', 4326), ${r});`
-          )
+          let locations = await pg`
+            SELECT
+              id,
+              created_at,
+              created_by,
+              lat,
+              lon,
+              description,
+              level
+            FROM world.locations
+            WHERE
+              ST_DWithin(geo, ${pg.types.point({lat, lon})}, ${r})
+          `
+
+          locations = locations.map(normalizeLocation)
 
           if (format === "geojson") {
             //
@@ -71,7 +90,7 @@ exports.handler = async function(event, context) {
   }
 
   if (!state.status) {
-    const pg = postgres()
+    const pg = pgInit()
 
     try {
       await query(pg)
@@ -88,22 +107,35 @@ exports.handler = async function(event, context) {
   return done(state)
 }
 
+function normalizeLocation(location) {
+  //
+  // The database returns empty values as "NULL", which are here translated into the native null
+  //
+  location.created_by = (location.created_by !== "NULL") ? location.created_by : null
+
+  return location
+}
+
 //
 // Transform into GeoJSON format
 //
 function locationAsGeoJSONFeature(location) {
-  let { id, lat, lon, created_at, created_by } = location
+  let {
+    id, lat, lon, created_at, created_by, description, level
+  } = location
 
   // Structure the data like a GeoJSON feature
-  feature = {
+  let feature = {
     id,
     properties: {
       created_at,
-      created_by
+      created_by,
+      description,
+      level
     },
     geometry: {
       type: "Point",
-      "coordinates": [lon, lat]
+      coordinates: [lon, lat]
     }
   }
 

@@ -68,6 +68,10 @@ Perform first-time initialization on the littermap database:
 
 - `./manage rds-db-init`
 
+Take note of the `geometry_type_oid` value in the output. It is necessary to provide it, so redeploy the stack with this value provided now:
+
+- `sam deploy -g`
+
 This will turn on PostGIS and create tables and access roles.
 
 ## Configure Sign-in with Google

@@ -1,4 +1,3 @@
-// Connection information is provided using specially named environment variables
 const postgres = require('postgres')
 
 const sql_reset_db = `
@@ -13,7 +12,7 @@ const sql_postgis_init = `
 `
 
 //
-// Locations use EPSG:4326 latitude/longitude coordinate system (same as GPS)
+// Locations use EPSG:4326 (i.e. GPS) latitude/longitude coordinate system
 //
 const sql_create_world = `
   CREATE SCHEMA world;
@@ -21,10 +20,12 @@ const sql_create_world = `
   CREATE TABLE world.locations (
     id SERIAL PRIMARY KEY,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT,
     lat FLOAT NOT NULL,
     lon FLOAT NOT NULL,
     geo GEOMETRY(POINT, 4326) NOT NULL,
-    created_by TEXT
+    description TEXT,
+    level SMALLINT
   );
 
   CREATE ROLE writer LOGIN ENCRYPTED PASSWORD '${process.env.DB_WRITER_PASSWORD}' NOCREATEROLE NOCREATEDB NOSUPERUSER NOINHERIT;
@@ -41,15 +42,20 @@ const sql_grant_permissions = `
   GRANT SELECT ON ALL TABLES IN SCHEMA world TO reader;
 `
 
+const sql_get_info =`
+  SELECT oid FROM pg_type WHERE typname='geometry';
+`
+
 exports.handler = async function(event, context) {
   let status = 200, log = []
 
+  // Connection details are provided via environment variables
   const pg = postgres()
 
   try {
     await pg.unsafe(sql_reset_db)
     log.push({
-      completed: "Performed factory reset of the database"
+      completed: "Performed full reset of the database"
     })
 
     await pg.unsafe(sql_postgis_init)
@@ -65,6 +71,13 @@ exports.handler = async function(event, context) {
     await pg.unsafe(sql_grant_permissions)
     log.push({
       completed: "Created user permissions"
+    })
+
+    let [result] = await pg.unsafe(sql_get_info)
+    log.push({
+      info: {
+        geometry_type_oid: result.oid
+      }
     })
   } catch(e) {
     status = 500

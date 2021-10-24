@@ -82,6 +82,8 @@ Resources:
           PGDATABASE: !Ref DBName
           PGUSER: writer
           PGPASSWORD: !Ref DBWriterPassword
+          DB_GEOMETRY_TYPE_OID: !Ref DBGeometryTypeOID
+          ALLOW_ANONYMOUS_SUBMIT: !Ref AllowAnonymousSubmit
       Events:
         AddLocation:
           Type: Api
@@ -108,6 +110,7 @@ Resources:
           PGDATABASE: !Ref DBName
           PGUSER: reader
           PGPASSWORD: !Ref DBReaderPassword
+          DB_GEOMETRY_TYPE_OID: !Ref DBGeometryTypeOID
       Events:
         GetLocationById:
           Type: Api
@@ -556,6 +559,9 @@ Parameters:
     AllowedPattern: "[^\\s@\"\\/]*"
     ConstraintDescription: 'The password must be 8 to 128 characters and can include any printable ASCII character except "/", """, or "@"'
     Default: observer
+  DBGeometryTypeOID:
+    Description: Geometry type OID once PostGIS extension is set up
+    Type: Number
   GoogleClientId:
     Description: Client ID issued by Google for third-party sign-in authentication
     Type: String
@@ -590,6 +596,10 @@ Parameters:
     Description: Event log table provisioned write capacity
     Type: Number
     Default: 1
+  AllowAnonymousSubmit:
+    Description: Allow users who are not logged in to submit a location
+    Type: Number
+    Default: 0
 
 Conditions:
   HasNotDBSnapshotIdentifier: !Equals [!Ref DBSnapshotIdentifier, '']
@@ -609,6 +619,7 @@ Metadata:
           - DBAdminPassword
           - DBWriterPassword
           - DBReaderPassword
+          - DBGeometryTypeOID
 
 Outputs:
   MainDBHost:
