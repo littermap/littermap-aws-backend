@@ -10,6 +10,7 @@ const dynamo = new (require('aws-sdk/clients/dynamodb').DocumentClient)()
 const { ensureSession } = require('/opt/nodejs/lib/middleware/session')
 const { logEvent } = require('/opt/nodejs/lib/eventlog')
 const { baseUrl, getReferrer, done } = require('/opt/nodejs/lib/endpoint')
+const { urlBase } = require('/opt/nodejs/lib/net')
 const { getAttributeAnyCase } = require('/opt/nodejs/lib/misc')
 const { md5, base64 } = require('/opt/nodejs/lib/crypto')
 
@@ -33,11 +34,11 @@ exports.handler = ensureSession( async (event, context) => {
           }
 
           //
-          // The API may be invoked directly (as in while testing during development), in which
+          // The API may be invoked directly (such as while testing during development), in which
           // case there won't be a referrer header in the request, so in that case use the host
-          // information from the lamdbda invocation event object.
+          // information from the lambda invocation event object.
           //
-          let redirect = origin ? origin + event.requestContext.stage : baseUrl(event)
+          let redirect = origin ? urlBase(origin) + '/' + event.requestContext.stage : baseUrl(event)
 
           dest_url =
             'https://accounts.google.com/o/oauth2/v2/auth' +

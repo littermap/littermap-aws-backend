@@ -80,6 +80,7 @@ This will turn on PostGIS and create tables and access roles.
 - Create an OAuth client profile in Google's [OAuth configuration utility](https://console.cloud.google.com/apis/credentials/oauthclient?)
 - For `Application type` choose `Web application`
 - Under `Authorized redirect URIs` add the API endpoint URL with `/auth/google` added at the end
+- If this is not a production deployment and you plan to test the client while serving it locally, also add: `https://localhost:9999/api/auth/google`
 - Google will issue a `Client ID` and `Client Secret`
 - Run `sam deploy -g` and specify those values when prompted
 

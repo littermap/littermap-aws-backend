@@ -14,7 +14,7 @@ const { ensureSession } = require('/opt/nodejs/lib/middleware/session')
 const { logEvent } = require('/opt/nodejs/lib/eventlog')
 const { getReferrer, done } = require('/opt/nodejs/lib/endpoint')
 const v = require('/opt/nodejs/lib/validation')
-const { httpsGet, httpsPost, queryString } = require('/opt/nodejs/lib/net')
+const { httpsGet, httpsPost, queryString, urlBase } = require('/opt/nodejs/lib/net')
 const { md5, debase64 } = require('/opt/nodejs/lib/crypto')
 
 const sessionsTable = process.env.SESSIONS_TABLE
@@ -75,11 +75,11 @@ exports.handler = ensureSession( async (event, context) => {
 
           await doAsync( async () => {
             //
-            // The current URL needs to be included with the next API call and it has to be the same as the one used to
-            // invoke this function, otherwise Google will refuse to issue an access token
+            // The exact URL used to invoke this function must be included in the next API call,
+            // otherwise Google will refuse to issue an access token
             //
             let redirect_uri =
-              (origin ? origin + event.requestContext.stage : baseUrl(event)) + event.path
+              (origin ? urlBase(origin) + '/' + event.requestContext.stage : baseUrl(event)) + event.path
 
             //
             // Use the authorization code in combination with the client secret given to this application by Google to
