@@ -1,5 +1,5 @@
 //
-// Function to retrieve privileged information
+// Retrieve information accessible by the logged in user
 //
 
 const dynamo = new (require('aws-sdk/clients/dynamodb').DocumentClient)()
@@ -12,10 +12,6 @@ const usersTable = process.env.USERS_TABLE
 exports.handler = ensureSession( async (event, context) => {
   let state = {}
 
-  function doSync(step) {
-    if (!state.status) { step() }
-  }
-
   async function doAsync(step) {
     if (!state.status) { await step() }
   }
@@ -26,31 +22,29 @@ exports.handler = ensureSession( async (event, context) => {
   } else {
     switch (event.resource) {
       case "/profile":
-        if (event.session.who) {
-          await doAsync( async () => {
-            try {
-              let result = await dynamo.get({
-                TableName: usersTable,
-                Key: {
-                  'id': event.session.who.id
-                }
-              }).promise()
-
-              let userRecord = result.Item
-
-              state.res = {
-                profile: {
-                  'name': userRecord.name,
-                  'avatar': userRecord.avatar,
-                  'member_since': userRecord.registered_at
-                }
+        await doAsync( async () => {
+          try {
+            let result = await dynamo.get({
+              TableName: usersTable,
+              Key: {
+                'id': event.session.who.id
               }
-            } catch(e) {
-              state.status = 500
-              state.res = { error: "User record lookup failed", reason: e.message }
+            }).promise()
+
+            let userRecord = result.Item
+
+            state.res = {
+              profile: {
+                'name': userRecord.name,
+                'avatar': userRecord.avatar,
+                'member_since': userRecord.registered_at
+              }
             }
-          } )
-        }
+          } catch(e) {
+            state.status = 500
+            state.res = { error: "User record lookup failed", reason: e.message }
+          }
+        } )
     }
   }
 

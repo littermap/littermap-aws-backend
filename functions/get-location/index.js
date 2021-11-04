@@ -30,7 +30,8 @@ exports.handler = async function(event, context) {
               lat,
               lon,
               description,
-              level
+              level,
+              images
             FROM world.locations
             WHERE
               id = ${id}
@@ -64,7 +65,8 @@ exports.handler = async function(event, context) {
               lat,
               lon,
               description,
-              level
+              level,
+              images
             FROM world.locations
             WHERE
               ST_DWithin(geo, ${pg.types.point({lat, lon})}, ${r})
@@ -121,7 +123,7 @@ function normalizeLocation(location) {
 //
 function locationAsGeoJSONFeature(location) {
   let {
-    id, lat, lon, created_at, created_by, description, level
+    id, lat, lon, created_at, created_by, description, level, images
   } = location
 
   // Structure the data like a GeoJSON feature
@@ -131,7 +133,8 @@ function locationAsGeoJSONFeature(location) {
       created_at,
       created_by,
       description,
-      level
+      level,
+      images
     },
     geometry: {
       type: "Point",

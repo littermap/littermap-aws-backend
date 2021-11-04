@@ -83,6 +83,7 @@ Resources:
           PGUSER: writer
           PGPASSWORD: !Ref DBWriterPassword
           DB_GEOMETRY_TYPE_OID: !Ref DBGeometryTypeOID
+          MEDIA_BUCKET: !Ref MediaBucket
           ALLOW_ANONYMOUS_SUBMIT: !Ref AllowAnonymousSubmit
       Events:
         AddLocation:
@@ -229,6 +230,30 @@ Resources:
     Metadata:
       BuildMethod: makefile
 
+  GetUploadLinkFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: get-upload-link
+      Description: Generate a signed upload link to the media bucket
+      Role: !GetAtt GetUploadLinkFunctionRole.Arn
+      Layers:
+        - !Ref CommonLib
+      Environment:
+        Variables:
+          SESSIONS_TABLE: !Ref SessionsTable
+          SESSION_LIFETIME_IN_DAYS: !Ref SessionLifetimeInDays
+          MEDIA_BUCKET: !Ref MediaBucket
+          MAX_UPLOAD_FILE_SIZE: !Ref MaxUploadFileSize
+      Events:
+        GetUploadLink:
+          Type: Api
+          Properties:
+            RestApiId: !Ref API
+            Path: /getuploadlink
+            Method: GET
+    Metadata:
+      BuildMethod: makefile
+
   DBInitFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -331,6 +356,21 @@ Resources:
             Action:
               - sts:AssumeRole
 
+  GetUploadLinkFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+               - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
   LogEventFunctionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -417,6 +457,7 @@ Resources:
         - Ref: InfoFunctionRole
         - Ref: LoginFunctionRole
         - Ref: AuthFunctionRole
+        - Ref: GetUploadLinkFunctionRole
         - Ref: AddLocationFunctionRole
 
   AllowLogEventPolicy:
@@ -432,6 +473,36 @@ Resources:
       Roles:
         - Ref: LoginFunctionRole
         - Ref: AuthFunctionRole
+        - Ref: AddLocationFunctionRole
+
+  AllowPutMediaPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: allow-put-media
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - s3:PutObject
+              - s3:PutObjectAcl
+            Resource: !Sub "arn:aws:s3:::${MediaBucket}/*"
+            Effect: Allow
+      Roles:
+        - Ref: GetUploadLinkFunctionRole
+
+  AllowTagMediaPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: allow-tag-media
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - s3:PutObjectTagging
+            Resource: !Sub "arn:aws:s3:::${MediaBucket}/*"
+            Effect: Allow
+      Roles:
+        - Ref: GetUploadLinkFunctionRole
         - Ref: AddLocationFunctionRole
 
   # Main database that stores the world
@@ -502,6 +573,29 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: !Ref EventLogReadCapacity
         WriteCapacityUnits: !Ref EventLogWriteCapacity
+
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteUnverified
+            ExpirationInDays: 1
+            Status: Enabled
+            TagFilters:
+              - Key: verified
+                Value: false
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - POST
+              - HEAD
+            AllowedOrigins:
+              - "*" # In production, should be domain name
 
 Parameters:
   APIStageName:
@@ -601,6 +695,10 @@ Parameters:
     Description: Allow users who are not logged in to submit a location
     Type: Number
     Default: 0
+  MaxUploadFileSize:
+    Description: Maximum allowed upload size
+    Type: Number
+    Default: 12582910
 
 Conditions:
   HasNotDBSnapshotIdentifier: !Equals [!Ref DBSnapshotIdentifier, '']
@@ -626,6 +724,9 @@ Outputs:
   MainDBHost:
     Description: Database remote host
     Value: !Sub "postgresql://${MainDB.Endpoint.Address}:${MainDB.Endpoint.Port}/${DBName}"
+  MediaBucket:
+    Description: S3 bucket that stores media content uploaded by users
+    Value: !Sub "https://${MediaBucket.DomainName}"
   API:
     Description: Endpoint URL
     Value: !Sub "https://${API}.execute-api.${AWS::Region}.${AWS::URLSuffix}/${API.Stage}/"

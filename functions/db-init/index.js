@@ -25,7 +25,8 @@ const sql_create_world = `
     lon FLOAT NOT NULL,
     geo GEOMETRY(POINT, 4326) NOT NULL,
     description TEXT,
-    level SMALLINT
+    level SMALLINT,
+    images TEXT[]
   );
 
   CREATE ROLE writer LOGIN ENCRYPTED PASSWORD '${process.env.DB_WRITER_PASSWORD}' NOCREATEROLE NOCREATEDB NOSUPERUSER NOINHERIT;

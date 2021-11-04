@@ -7,32 +7,43 @@
 //   "lat": 28.6,
 //   "lon": -80.6,
 //   "description": "Broken glass everywhere",
-//   "level": 74
+//   "level": 64,
+//   "images" [
+//     "f1d73d68af0bc0aa4d9576c5",
+//     "e5e40b90f78cd4959d1808db"
+//   ]
 // }
 //
 // Returns the id of the newly created location.
 //
 
+const s3 = new (require('aws-sdk/clients/s3'))()
+
 const { ensureSession } = require('/opt/nodejs/lib/middleware/session')
-const { logEvent } = require('/opt/nodejs/lib/eventlog')
 const { done } = require('/opt/nodejs/lib/endpoint')
+const { check_isArray, check_isHex } = require('/opt/nodejs/lib/validation')
+const { logEvent } = require('/opt/nodejs/lib/eventlog')
 const { pgInit } = require('/opt/nodejs/lib/postgres')
 
+const mediaBucket = process.env.MEDIA_BUCKET
 const allowAnonymousSubmit = process.env.ALLOW_ANONYMOUS_SUBMIT
 
 exports.handler = ensureSession( async (event, context) => {
   let state = {}
 
-  let lat, lon, description, level
+  let lat, lon, description, level, images
 
   try {
-    ({ lat, lon, description, level } = JSON.parse(event.body))
+    ({ lat, lon, description, level, images } = JSON.parse(event.body))
   } catch(e) {
     state.status = 422
     state.res = { error: "Post data must be valid JSON" }
   }
 
   if (!state.status) {
+    //
+    // Input validation before committing data to the database
+    //
     if (typeof lat !== 'number' || typeof lon !== 'number' ) {
       state.status = 422
       state.res = { error: "{lat, lon} must be numbers" }
@@ -42,6 +53,9 @@ exports.handler = ensureSession( async (event, context) => {
     } else if (typeof level !== 'number' || !Number.isInteger(level) || level < 1 || level > 100) {
       state.status = 422
       state.res = { error: "'level' is expected to be an integer in the range [1..100]" }
+    } else {
+      // Image keys are random 12-byte hex values
+      check_isArray(state, 'images', images, "24 digit hex", check_isHex(24))
     }
   }
 
@@ -71,7 +85,8 @@ exports.handler = ensureSession( async (event, context) => {
           lon,
           geo,
           description,
-          level
+          level,
+          images
         )
         VALUES(
           ${author},
@@ -79,7 +94,8 @@ exports.handler = ensureSession( async (event, context) => {
           ${lon},
           ${pg.types.point({lat, lon})},
           ${description},
-          ${level}
+          ${level},
+          ${pg.array(images)}::text[]
         )
         RETURNING
           id
@@ -109,6 +125,41 @@ exports.handler = ensureSession( async (event, context) => {
         })
       }
     }
+  }
+
+  if (!state.status) {
+    //
+    // Mark images as verified in the S3 store, so that they don't get automatically
+    // deleted in accordance with the automatic deletion policy
+    //
+    let errors = []
+
+    // Perform all requests simultaneously, but wait for all of them to finish
+    await Promise.all(
+      images.map(
+        async (imageKey) => {
+          try {
+            await s3.putObjectTagging( {
+              Bucket: mediaBucket,
+              Key: imageKey,
+              Tagging: {
+                TagSet: [
+                  {
+                    Key: "verified",
+                    Value: "true"
+                  }
+                ]
+              }
+            } ).promise()
+          } catch(e) {
+            errors.push(`Failed to mark image ${imageKey} as verified: ${e.message}`)
+          }
+        }
+      )
+    )
+
+    if (errors.length !== 0)
+      res.media_errors = errors
   }
 
   state.status = state.status || 201 // "New resource created"

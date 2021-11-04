@@ -194,6 +194,9 @@ case $1 in
 
   "rds-db-init" )
     $0 function-run db-init
+
+    echo
+    echo Don\'t forget to run \`sam deploy -g\` and set the value of the geometry type OID
     ;;
 
   "rds-db-run" ) # args: query, [user]
@@ -238,6 +241,14 @@ case $1 in
   "rds-db-deauthorize-ingress" )
     sg=$($0 rds-db-get-security-group)
     aws ec2 revoke-security-group-ingress --group-id $sg --protocol tcp --port 5432 --cidr 0.0.0.0/0
+    ;;
+
+  "s3-list-object-tags" ) # args: bucket-name object-key
+    aws s3api get-object-tagging --bucket $2 --key $3
+    ;;
+
+  "s3-delete-all" ) # args: bucket-name
+    aws s3 rm s3://$2 --recursive
     ;;
 
   "event-log-table-info" )

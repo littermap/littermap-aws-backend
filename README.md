@@ -1,4 +1,4 @@
-Serverless cloud back-end for the [Litter Map](https://github.com/earthstewards/littermap) project.
+Cloud native back-end for the [Litter Map](https://github.com/earthstewards/littermap) application.
 
 ## Architecture
 
@@ -60,6 +60,8 @@ Deploy the stack (ignore values you don't know for now):
 
 - `sam deploy -g` ([what this does](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-deploy.html))
 
+Take note of the values returned in the `Outputs` section. You will need them to configure the front-end client.
+
 Enable outside network access to the database private subnet:
 
 - `./manage rds-db-authorize-ingress`
@@ -68,11 +70,11 @@ Perform first-time initialization on the littermap database:
 
 - `./manage rds-db-init`
 
+This will turn on PostGIS and create tables and access roles.
+
 Take note of the `geometry_type_oid` value in the output. It is necessary to provide it, so redeploy the stack with this value provided now:
 
 - `sam deploy -g`
-
-This will turn on PostGIS and create tables and access roles.
 
 ## Configure Sign-in with Google
 
@@ -84,7 +86,7 @@ This will turn on PostGIS and create tables and access roles.
 - Google will issue a `Client ID` and `Client Secret`
 - Run `sam deploy -g` and specify those values when prompted
 
-## Interacting with the service
+## Interacting manually with the service
 
 In the following instructions, replace `$BASE` with the API URL that looks something like:
 
@@ -94,9 +96,9 @@ The active URL for the deployed API can be viewed by running:
 
 - `./manage list-api-urls`
 
-Add a location:
+Add a location (anonymous submit must be enabled):
 
-- `echo '{"lat":22.3126,"lon":114.0413}' | http -v POST $BASE/add`
+- `echo '{"lat":22.3126,"lon":114.0413,"description":"Whoa!","level":99,"images":[]}' | http -v POST $BASE/add`
 
 Retrieve a location:
 
@@ -108,7 +110,7 @@ Log in (with Google):
 
 Add a location as a logged in user (get the session value from the `Set-Cookie` reponse header):
 
-- `echo '{"lat"-26.049:,"lon":31.714}' | http -v POST $BASE/add "Cookie:session=cbdaf7784f85381b96a219c7"`
+- `echo '{"lat"-26.049:,"lon":31.714,"description":"Whoa!","level":99,"images":[]}' | http -v POST $BASE/add "Cookie:session=cbdaf7784f85381b96a219c7"`
 
 Log out:
 
@@ -206,7 +208,7 @@ To learn more about the deployment process and options run:
 
 ## Development tips
 
-- For quick iteration, bind a shell alias for `sam build && sam deploy`
+- For quick iteration, create a shell alias for `sam build && sam deploy`
 - Test javascript code with `./manage lint` before deploying functions
 - Colorize JSON output with `jq`, for example: `./manage api-export | jq .`
 
@@ -256,6 +258,7 @@ Used as the main database to store global locations
 - [Connecting to Postgres using node-postgres](https://node-postgres.com/features/connecting)
 - [Suggestions on what not to do with PostgreSQL](https://shabaam.co/postgresql-now-utc/)
 - [Scaling your Amazon RDS instance](https://aws.amazon.com/blogs/database/scaling-your-amazon-rds-instance-vertically-and-horizontally/)
+- [RDS multi availability zone deployments](https://aws.amazon.com/rds/features/multi-az/)
 
 ### [DynamoDB](https://aws.amazon.com/dynamodb/) database
 
@@ -291,6 +294,8 @@ Auxiliary database used for event logging
 - [Sharing code between Lambda functions using Layers](https://www.jijutm.com/aws/refactored-a-lambda-heap-to-use-layers/)
 - [Overview of user authentication with OAuth](https://www.nylas.com/blog/integrate-google-oauth)
 - [Implementing OAuth2 authentication](https://discordjs.guide/oauth2/#a-quick-example)
+- [Enable user file uploads with S3 POST signed URLs](https://advancedweb.hu/how-to-use-s3-post-signed-urls/)
+- [Serving an SPA from S3 using CloudFront](https://johnlouros.com/blog/using-CloudFront-to-serve-an-SPA-from-S3)
 - [Using GitLab CI/CD Pipeline to deploy AWS SAM applications](https://aws.amazon.com/blogs/apn/using-gitlab-ci-cd-pipeline-to-deploy-aws-sam-applications/)
 
 ### General articles

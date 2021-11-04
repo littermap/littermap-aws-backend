@@ -1,3 +1,7 @@
+#
+# Quick way to copy the function scripts to the deployment directory
+#
+
 build-AuthFunction:
 	cd auth/ && cp *.js $(ARTIFACTS_DIR)/
 
@@ -15,6 +19,9 @@ build-AddLocationFunction:
 
 build-GetLocationFunction:
 	cd get-location/ && cp *.js $(ARTIFACTS_DIR)/
+
+build-GetUploadLinkFunction:
+	cd get-upload-link/ && cp *.js $(ARTIFACTS_DIR)/
 
 build-DBInitFunction:
 	cd db-init/ && cp *.js $(ARTIFACTS_DIR)/
