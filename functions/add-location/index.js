@@ -59,6 +59,10 @@ exports.handler = ensureSession( async (event, context) => {
     }
   }
 
+  //
+  // TODO: Consider raising an alert if location doesn't appear to be realistic
+  //
+
   let author
 
   if (!state.status) {
@@ -76,6 +80,10 @@ exports.handler = ensureSession( async (event, context) => {
 
   if (!state.status) {
     const pg = pgInit()
+
+    //
+    // TODO: Consider checking if exact same location item already exists (to guard against duplicate submissions)
+    //
 
     try {
       let [result] = await pg`
@@ -137,11 +145,11 @@ exports.handler = ensureSession( async (event, context) => {
     // Perform all requests simultaneously, but wait for all of them to finish
     await Promise.all(
       images.map(
-        async (imageKey) => {
+        async (imageId) => {
           try {
             await s3.putObjectTagging( {
               Bucket: mediaBucket,
-              Key: imageKey,
+              Key: 'media/' + imageId,
               Tagging: {
                 TagSet: [
                   {
@@ -152,14 +160,19 @@ exports.handler = ensureSession( async (event, context) => {
               }
             } ).promise()
           } catch(e) {
-            errors.push(`Failed to mark image ${imageKey} as verified: ${e.message}`)
+            errors.push(`Failed to mark image ${imageId} as verified: ${e.message}`)
           }
         }
       )
     )
 
-    if (errors.length !== 0)
-      res.media_errors = errors
+    if (errors.length !== 0) {
+      //
+      // TODO: Consider taking action when images weren't tagged as verified
+      //
+
+      state.res.media_errors = errors
+    }
   }
 
   state.status = state.status || 201 // "New resource created"

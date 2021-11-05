@@ -23,22 +23,24 @@ exports.handler = ensureSession( async (event, context) => {
   }
 
   if (!state.status) {
-    let key = randomHex(12)
+    let id = randomHex(12)
 
     try {
       //
       // Signed S3 upload URLs enable anyone to upload a file (within specified constraints)
-      // to a specific S3 bucket until they expire
+      // to a specific S3 bucket within a certain time window
       //
       const data = s3.createPresignedPost({
         Bucket: mediaBucket,
         Fields: {
-          key,
+          id,
+          key: 'media/' + id,
           acl: 'public-read',
           Tagging: objectTags
         },
         Conditions: [
           ["content-length-range", 0, maxImageFileSize],
+          ["starts-with", "$key", "media/"],
           ["starts-with", "$content-type", "image/"],
           ['eq', '$Tagging', objectTags],
           { acl: "public-read" }

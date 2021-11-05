@@ -34,6 +34,8 @@ Cloud native back-end for the [Litter Map](https://github.com/earthstewards/litt
 
 First install the [requirements](#Requirements).
 
+### Configuring AWS
+
 If you don't have an AWS account, [create one](https://aws.amazon.com/resources/create-account/).
 
 Using your root AWS account, create a [new user](https://console.aws.amazon.com/iam/home#/users$new) with programmatic access to the AWS API. Make sure this user has membership in a group with `AdministratorAccess` privileges.
@@ -47,6 +49,8 @@ With this information on hand, configure the aws-cli utility with the access key
 If you've already done that before for another deployment, take a look at [named profiles](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html).
 
 Your credentials will now be stored in a local file `~/.aws/credentials` and the AWS command line tools will now be able to execute commands on behalf of this account.
+
+### Deploying the serverless stack
 
 If this is a fresh clone of this source code repository, prepare the configuration files by running:
 
@@ -76,15 +80,40 @@ Take note of the `geometry_type_oid` value in the output. It is necessary to pro
 
 - `sam deploy -g`
 
-## Configure Sign-in with Google
+### Configuring "Sign-in with Google" integration
 
-- [Register](https://console.cloud.google.com/apis/credentials/consent/) this application with Google's API services and configure the consent screen
-- Create an OAuth client profile in Google's [OAuth configuration utility](https://console.cloud.google.com/apis/credentials/oauthclient?)
+- [Register](https://console.cloud.google.com/apis/credentials/consent/) this application with Google's API services and configure the consent screen details
+- Create an OAuth client profile in Google's [OAuth configuration utility](https://console.cloud.google.com/apis/credentials/oauthclient)
 - For `Application type` choose `Web application`
-- Under `Authorized redirect URIs` add the API endpoint URL with `/auth/google` added at the end
-- If this is not a production deployment and you plan to test the client while serving it locally, also add: `https://localhost:9999/api/auth/google`
-- Google will issue a `Client ID` and `Client Secret`
-- Run `sam deploy -g` and specify those values when prompted
+- Under `Authorized redirect URIs`, depending on which domains you will be using to test the application, add the appropriate URLs with a path of `/api/auth/google`:
+  - `https://` + domain name + `/api/auth/google` (e.g., for production)
+  - `https://localhost:9999/api/auth/google` (for local testing)
+  - E.g., `https://m2cgu13qmkahry.cloudfront.net/api/auth/google` (for testing with CloudFront CDN)
+  - E.g., `https://91kfuezk29.execute-api.us-east-1.amazonaws.com/api/auth/google` (for testing the API directly)
+- Take note of the issued `Client ID` and `Client Secret` values
+- Update the stack deployment with `sam deploy -g` and specify those values when prompted
+
+### Deploying the front-end
+
+The serverless stack includes S3 buckets for hosting the front-end and user uploaded media content. To deploy a version of the front-end:
+
+- `./manage www-prepare`
+- Edit `publish/config.json` to configure it
+- `./manage www-publish`
+
+If you turned on `EnableCDN`, the front-end will now available through the CloudFront CDN endpoint.
+
+### Updating the front-end
+
+To deploy the latest version:
+
+- `./manage www-update`
+- `./manage www-publish`
+
+To deploy a specific branch or commit:
+
+- `./manage www-update <branch-or-commit>`
+- `./manage www-publish`
 
 ## Interacting manually with the service
 
@@ -237,6 +266,7 @@ To learn more about the deployment process and options run:
 - [AWS fundamentals cheatsheet](https://github.com/agavrel/aws_fundamentals_cheatsheet)
 - [What are the pros and cons of using third party sign-in](https://www.quora.com/What-are-the-pros-and-cons-of-using-Google-Sign-In-for-web-applications/answer/Dagmar-Timler)
 - [Selecting an AWS region for your deployment](https://raw.githubusercontent.com/solidjs/solid-realworld/master/src/store/createAgent.js)
+- [Caching best practices](https://aws.amazon.com/caching/best-practices/)
 
 ### [Amazon RDS](https://aws.amazon.com/rds/) database
 
@@ -312,6 +342,8 @@ Auxiliary database used for event logging
 - [Sharp edges in serverless](http://blog.ryangreen.ca/2019/06/18/in-the-cloud-beware-of-sharp-edges-for-there-are-many/)
 - [In-depth API gateway configuration](https://nickolaskraus.org/articles/creating-an-amazon-api-gateway-with-a-mock-integration-using-cloudformation/)
 - [Understanding the basics of Cross Origin Resource Sharing policies](https://javascript.plainenglish.io/understanding-the-basics-to-fetch-credentials-863b25968ed5)
+- [Using boolean parameters in CloudFormation stack](https://www.awholenother.com/2020/06/20/boolean-parameters-in-cloudformation.html)
+- [S3 bucket restrictions and limitations](https://docs.aws.amazon.com/AmazonS3/latest/userguide/BucketRestrictions.html)
 
 ### More information
 

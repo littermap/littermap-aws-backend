@@ -1,5 +1,5 @@
 //
-// Retrieve information accessible by the logged in user
+// Retrieve information
 //
 
 const dynamo = new (require('aws-sdk/clients/dynamodb').DocumentClient)()

@@ -4,7 +4,7 @@ region=$(aws configure get region)
 
 if [[ $region == "" ]] ; then
   echo "Please configure your AWS deployment region by running: aws configure"
-  exit
+  exit 1
 fi
 
 nargs=$#
@@ -22,14 +22,12 @@ if [[ nargs -eq 0 ]]; then
     echo -ne "- \e[1;37m$(echo $i | cut -d\" -f 2)\e[0m"
     echo -e "\e[33m$(echo $i | awk -F '# args:' '{print $2}')\e[0m"
   done
-
-  exit
 fi
 
 args () {
   if [[ $(($nargs-1)) -lt $1 ]]; then
     echo "This command requires $1 argument(s)"
-    exit
+    exit 1
   fi
 }
 
@@ -310,6 +308,88 @@ case $1 in
     else
       jshint $(find functions/ -name '*.js')
     fi
+    ;;
+
+  "www-prepare" ) # args: [git-ref]
+    if ! command -v pnpm &>/dev/null; then
+      echo Please install 'pnpm': https://pnpm.io
+      exit 1
+    fi
+
+    ref=${2:-master}
+
+    rm -rf publish/
+
+    git clone git@github.com:earthstewards/littermap.git publish
+    cd publish
+    echo
+
+    git reset $ref --hard
+    echo
+
+    pnpm install
+    echo
+
+    echo Please configure the front-end in publish/ before publishing
+    ;;
+
+  "www-update" ) # args: [git-ref]
+    if [ ! -d publish ]; then
+      echo First acquire a copy of the front-end repository by running: "$0 www-prepare"
+      exit 1
+    fi
+
+    ref=${2:-master}
+
+    cd publish
+    git reset --hard
+    echo
+    git pull
+    echo
+    git reset $ref --hard
+    echo
+
+    pnpm install
+    echo
+
+    echo Check the configuration and then publish the website
+    ;;
+
+  "www-publish" )
+    cd publish
+
+    pnpm run build
+
+    if [ $? -ne 0 ]; then
+      echo
+      echo Build failed
+      exit 1
+    fi
+
+    echo
+    echo -n Looking for S3 bucket that hosts the website...
+
+    bucket=$(aws s3 ls | grep website | awk '{ print $3 }')
+
+    if [ "$bucket" = "" ]; then
+      echo " not found."
+      echo
+      echo Could not publish the website because the hosting S3 bucket was not found
+
+      exit 1
+    else
+      echo
+      echo
+    fi
+
+    echo Uploading files to S3 bucket: $bucket
+    echo
+
+    aws s3 sync --acl public-read --cache-control 'max-age=604800' build/ s3://$bucket --exclude index.html
+    aws s3 sync --acl public-read --cache-control 'no-cache'       build/ s3://$bucket
+
+    echo
+    echo Website files published to: https://$bucket.s3.amazonaws.com
     ;;
 
   * )

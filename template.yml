@@ -310,7 +310,6 @@ Resources:
             Action:
               - sts:AssumeRole
 
-
   InfoFunctionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -597,6 +596,91 @@ Resources:
             AllowedOrigins:
               - "*" # In production, should be domain name
 
+  WebsiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html # Single-page application handles routing on the front-end
+
+  WebsiteDelivery:
+    Type: AWS::CloudFront::Distribution
+    DependsOn:
+      - MediaBucket
+      - WebsiteBucket
+    Properties:
+      DistributionConfig:
+        Enabled: !Ref EnableCDN
+        Origins:
+          - Id: BackendAPI
+            DomainName: !Sub ${API}.execute-api.${AWS::Region}.${AWS::URLSuffix}
+            CustomOriginConfig:
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+          - Id: Media
+            DomainName: !GetAtt MediaBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: "" # Specify this to restrict direct access to the S3 bucket
+            ConnectionAttempts: 2
+            ConnectionTimeout: 2
+          - Id: FrontendApplication
+            DomainName: !Sub ${WebsiteBucket}.s3-website-${AWS::Region}.amazonaws.com
+            CustomOriginConfig:
+              OriginProtocolPolicy: http-only # S3 "website" origin only supports HTTP
+            ConnectionAttempts: 1
+            ConnectionTimeout: 2
+        CacheBehaviors:
+          - PathPattern: !Sub ${APIStageName}/*
+            TargetOriginId: BackendAPI
+            AllowedMethods:
+              - GET
+              - HEAD
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            ForwardedValues:
+              Headers:
+                # Specify headers that the back-end API needs to receive
+                - Referer
+              QueryString: true
+              Cookies:
+                Forward: all
+            MaxTTL: 0
+            MinTTL: 0
+            DefaultTTL: 0
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+          - PathPattern: media/*
+            TargetOriginId: Media
+            AllowedMethods:
+              - GET
+              - HEAD
+            ForwardedValues:
+              QueryString: false
+              Cookies:
+                Forward: none
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+        DefaultCacheBehavior:
+          TargetOriginId: FrontendApplication
+          AllowedMethods:
+            - GET
+            - HEAD
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+          Compress: true
+          ViewerProtocolPolicy: redirect-to-https
+        DefaultRootObject: index.html
+        HttpVersion: http2
+        IPV6Enabled: true
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+
 Parameters:
   APIStageName:
     Description: API stage
@@ -636,7 +720,7 @@ Parameters:
     MaxLength: 128
     AllowedPattern: "[^\\s@\"\\/]*"
     ConstraintDescription: 'The password must be 8 to 128 characters and can include any printable ASCII character except "/", """, or "@"'
-    Default: makeitpristine
+    Default: pristine
   DBWriterPassword:
     Description: Database write access password
     Type: String
@@ -693,23 +777,36 @@ Parameters:
     Default: 1
   AllowAnonymousSubmit:
     Description: Allow users who are not logged in to submit a location
-    Type: Number
-    Default: 0
+    Type: String
+    AllowedValues:
+      - true
+      - false
+    Default: false
   MaxUploadFileSize:
     Description: Maximum allowed upload size
     Type: Number
     Default: 12582910
+  EnableCDN:
+    Description: Enable global delivery with CloudFront
+    Type: String
+    AllowedValues:
+      - true
+      - false
+    Default: false
 
 Conditions:
   HasNotDBSnapshotIdentifier: !Equals [!Ref DBSnapshotIdentifier, '']
   HasDBSnapshotIdentifier: !Not [!Condition HasNotDBSnapshotIdentifier]
+  HasCDN: !Equals [!Ref EnableCDN, true]
 
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
-      - Label:
-          default: "Database Configuration"
+      -
+        Label:
+          default: Main database
         Parameters:
+          - DBName
           - DBInstanceClass
           - DBPostgresVersion
           - DBAllocatedStorage
@@ -719,6 +816,46 @@ Metadata:
           - DBWriterPassword
           - DBReaderPassword
           - DBGeometryTypeOID
+      -
+        Label:
+          default: User accounts
+        Parameters:
+          - UsersTableReadCapacity
+          - UsersTableWriteCapacity
+      -
+        Label:
+          default: Browsing sessions
+        Parameters:
+          - SessionLifetimeInDays
+          - SessionsTableReadCapacity
+          - SessionsTableWriteCapacity
+      -
+        Label:
+          default: Authentication
+        Parameters:
+          - GoogleClientId
+          - GoogleClientSecret
+      -
+        Label:
+          default: Event log
+        Parameters:
+          - EventLogReadCapacity
+          - EventLogWriteCapacity
+      -
+        Label:
+          default: User permissions
+        Parameters:
+          - AllowAnonymousSubmit
+      -
+        Label:
+          default: User uploads
+        Parameters:
+          - MaxUploadFileSize
+      -
+        Label:
+          default: Backend API
+        Parameters:
+          - APIStageName
 
 Outputs:
   MainDBHost:
@@ -728,8 +865,14 @@ Outputs:
     Description: S3 bucket that stores media content uploaded by users
     Value: !Sub "https://${MediaBucket.DomainName}"
   API:
-    Description: Endpoint URL
+    Description: Backend API
     Value: !Sub "https://${API}.execute-api.${AWS::Region}.${AWS::URLSuffix}/${API.Stage}/"
-  Application:
+  WebsiteFiles:
+    Description: Website Assets
+    Value: !Sub "${WebsiteBucket.WebsiteURL}"
+  Website:
+    Description: Website (delivered by CDN)
+    Value: !If [HasCDN, !Sub "https://${WebsiteDelivery.DomainName}", "Not enabled"]
+  ManagementConsole:
     Description: Manage this application
     Value: !Sub "https://console.aws.amazon.com/lambda/home?region=${AWS::Region}#/applications/${AWS::StackName}"

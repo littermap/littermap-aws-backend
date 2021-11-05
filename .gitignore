@@ -1,3 +1,4 @@
-.aws-sam/
+.aws-sam
 /samconfig.toml
-node_modules/
+node_modules
+publish

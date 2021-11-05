@@ -37,13 +37,11 @@ exports.handler = async function(event, context) {
               id = ${id}
           `
 
-          location = normalizeLocation(location)
-
           if (!location) {
             state.status = 404
             state.res = { message: "Not found" }
           } else {
-            state.res = { location }
+            state.res = { location: normalizeLocation(location) }
           }
         }
       }
@@ -113,7 +111,8 @@ function normalizeLocation(location) {
   //
   // The database returns empty values as "NULL", which are here translated into the native null
   //
-  location.created_by = (location.created_by !== "NULL") ? location.created_by : null
+  if (location.created_by === "NULL")
+    location.created_by = null
 
   return location
 }
