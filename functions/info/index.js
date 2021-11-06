@@ -20,8 +20,8 @@ exports.handler = ensureSession( async (event, context) => {
     state.status = 200
     state.res = { message: "Not logged in" }
   } else {
-    switch (event.resource) {
-      case "/profile":
+    switch (event.routeKey) {
+      case "GET /profile":
         await doAsync( async () => {
           try {
             let result = await dynamo.get({
@@ -47,8 +47,6 @@ exports.handler = ensureSession( async (event, context) => {
         } )
     }
   }
-
-  state.status = state.status || 200
 
   return done(state)
 } )

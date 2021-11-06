@@ -16,8 +16,8 @@ const { pgInit } = require('/opt/nodejs/lib/postgres')
 exports.handler = async function(event, context) {
   let state = {}, query
 
-  switch (event.resource) {
-    case "/id/{id}":
+  switch (event.routeKey) {
+    case "GET /id/{id}":
       let { id } = event.pathParameters
 
       if (check_isPositiveInteger(state, "id", id)) {
@@ -48,7 +48,7 @@ exports.handler = async function(event, context) {
 
       break
 
-    case "/radius":
+    case "GET /radius":
       let { lat, lon, r, format } = event.queryStringParameters
 
       if (check_isNumeric(state, "lat", lat) &&
@@ -101,8 +101,6 @@ exports.handler = async function(event, context) {
       pg.end()
     }
   }
-
-  state.status = state.status || 200 // "OK"
 
   return done(state)
 }

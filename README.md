@@ -177,7 +177,7 @@ The database can be completely reset by running:
 
 To connect to the database and use it directly, first look up the database user passwords:
 
-- `./manage list-functions | grep _PASSWORD | sort -u`
+- `./manage list-functions | grep PASS | sort -u`
 
 Get the host address with:
 
@@ -237,7 +237,12 @@ To learn more about the deployment process and options run:
 
 ## Development tips
 
-- For quick iteration, create a shell alias for `sam build && sam deploy`
+- For quick iteration, create shell aliases for:
+
+  - `sam build && sam deploy`
+  - `sam build && sam deploy -g`
+  - `sam build && sam deploy --no-confirm-changeset`
+
 - Test javascript code with `./manage lint` before deploying functions
 - Colorize JSON output with `jq`, for example: `./manage api-export | jq .`
 

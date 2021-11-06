@@ -7,7 +7,7 @@
 const postgres = require('postgres')
 
 exports.handler = async function(event, context) {
-  let status = 200, res
+  let status, res
 
   let user = event.user || 'admin'
   let pass = process.env['DB_' + user.toUpperCase() + '_PASSWORD']
@@ -33,7 +33,7 @@ exports.handler = async function(event, context) {
   }
 
   return {
-    statusCode: status,
+    statusCode: status || 200,
     body: JSON.stringify(res)
   }
 }

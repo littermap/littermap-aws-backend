@@ -48,7 +48,7 @@ const sql_get_info =`
 `
 
 exports.handler = async function(event, context) {
-  let status = 200, log = []
+  let status, log = []
 
   // Connection details are provided via environment variables
   const pg = postgres()
@@ -82,6 +82,7 @@ exports.handler = async function(event, context) {
     })
   } catch(e) {
     status = 500
+
     log.push({
       error: "Database correspondence error",
       reason: e.message
@@ -91,7 +92,7 @@ exports.handler = async function(event, context) {
   }
 
   return {
-    statusCode: status,
+    statusCode: status || 200,
     body: JSON.stringify({ log })
   }
 }

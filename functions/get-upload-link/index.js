@@ -55,7 +55,5 @@ exports.handler = ensureSession( async (event, context) => {
     }
   }
 
-  state.status = state.status || 200
-
   return done(state)
 } )

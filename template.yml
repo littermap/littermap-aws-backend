@@ -9,8 +9,8 @@
 # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-specification-template-anatomy-globals.html
 # https://theburningmonk.com/cloudformation-ref-and-getatt-cheatsheet/
 
-AWSTemplateFormatVersion: '2010-09-09'
-Transform: 'AWS::Serverless-2016-10-31'
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
 Description: Global location submission and retrieval system
 
 Globals:
@@ -21,14 +21,12 @@ Globals:
 
 Resources:
   API:
-    Type: AWS::Serverless::Api
+    Type: AWS::Serverless::HttpApi
     Properties:
-      Name: littermap-api
-      Description: REST API for the Litter Map backend
+      Description: Backend API
       StageName: !Ref APIStageName
-      OpenApiVersion: 3.0.3
       Auth:
-        Authorizers: []
+        Authorizers: {}
 
   CommonLib:
     Type: AWS::Serverless::LayerVersion
@@ -87,9 +85,9 @@ Resources:
           ALLOW_ANONYMOUS_SUBMIT: !Ref AllowAnonymousSubmit
       Events:
         AddLocation:
-          Type: Api
+          Type: HttpApi
           Properties:
-            RestApiId: !Ref API
+            ApiId: !Ref API
             Path: /add
             Method: POST
     Metadata:
@@ -114,34 +112,17 @@ Resources:
           DB_GEOMETRY_TYPE_OID: !Ref DBGeometryTypeOID
       Events:
         GetLocationById:
-          Type: Api
+          Type: HttpApi
           Properties:
-            RestApiId: !Ref API
+            ApiId: !Ref API
             Path: /id/{id}
             Method: GET
-            RequestParameters:
-              - method.request.path.id:
-                  Required: true
-                  Caching: false
         GetLocationsByRadius:
-          Type: Api
+          Type: HttpApi
           Properties:
-            RestApiId: !Ref API
+            ApiId: !Ref API
             Path: /radius
             Method: GET
-            RequestParameters:
-              - method.request.querystring.lat:
-                  Required: true
-                  Caching: false
-              - method.request.querystring.lon:
-                  Required: true
-                  Caching: false
-              - method.request.querystring.r:
-                  Required: true
-                  Caching: false
-              - method.request.querystring.format:
-                  Required: false
-                  Caching: false
     Metadata:
       BuildMethod: makefile
 
@@ -160,9 +141,9 @@ Resources:
           USERS_TABLE: !Ref UsersTable
       Events:
         GetProfileInfo:
-          Type: Api
+          Type: HttpApi
           Properties:
-            RestApiId: !Ref API
+            ApiId: !Ref API
             Path: /profile
             Method: GET
     Metadata:
@@ -183,19 +164,19 @@ Resources:
           CLIENTID_GOOGLE: !Ref GoogleClientId
       Events:
         Login:
-          Type: Api
+          Type: HttpApi
           Properties:
-            RestApiId: !Ref API
+            ApiId: !Ref API
             Path: /login/{service}
             Method: GET
-            RequestParameters:
-              - method.request.path.service:
-                  Required: true
-                  Caching: false
+            # RequestParameters:
+            #   - method.request.path.service:
+            #       Required: true
+            #       Caching: false
         Logout:
-          Type: Api
+          Type: HttpApi
           Properties:
-            RestApiId: !Ref API
+            ApiId: !Ref API
             Path: /logout
             Method: GET
     Metadata:
@@ -218,15 +199,11 @@ Resources:
           CLIENTSECRET_GOOGLE: !Ref GoogleClientSecret
       Events:
         Authentication:
-          Type: Api
+          Type: HttpApi
           Properties:
-            RestApiId: !Ref API
+            ApiId: !Ref API
             Path: /auth/{service}
             Method: GET
-            RequestParameters:
-              - method.request.path.service:
-                  Required: true
-                  Caching: false
     Metadata:
       BuildMethod: makefile
 
@@ -246,9 +223,9 @@ Resources:
           MAX_UPLOAD_FILE_SIZE: !Ref MaxUploadFileSize
       Events:
         GetUploadLink:
-          Type: Api
+          Type: HttpApi
           Properties:
-            RestApiId: !Ref API
+            ApiId: !Ref API
             Path: /getuploadlink
             Method: GET
     Metadata:

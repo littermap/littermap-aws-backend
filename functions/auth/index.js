@@ -12,7 +12,7 @@ const dynamo = new (require('aws-sdk/clients/dynamodb').DocumentClient)()
 
 const { ensureSession } = require('/opt/nodejs/lib/middleware/session')
 const { logEvent } = require('/opt/nodejs/lib/eventlog')
-const { getReferrer, done } = require('/opt/nodejs/lib/endpoint')
+const { done } = require('/opt/nodejs/lib/endpoint')
 const v = require('/opt/nodejs/lib/validation')
 const { httpsGet, httpsPost, queryString, urlBase } = require('/opt/nodejs/lib/net')
 const { md5, debase64 } = require('/opt/nodejs/lib/crypto')
@@ -33,8 +33,8 @@ exports.handler = ensureSession( async (event, context) => {
 
   let userinfo, origin
 
-  switch (event.resource) {
-    case "/auth/{service}":
+  switch (event.routeKey) {
+    case "GET /auth/{service}":
       let { service } = event.pathParameters
 
       switch (service) {
@@ -54,6 +54,7 @@ exports.handler = ensureSession( async (event, context) => {
 
             try {
               original_state = debase64(original_state)
+
               origin = original_state.origin
               secret = original_state.secret
             } catch(e) {
@@ -75,11 +76,11 @@ exports.handler = ensureSession( async (event, context) => {
 
           await doAsync( async () => {
             //
-            // The exact URL used to invoke this function must be included in the next API call,
-            // otherwise Google will refuse to issue an access token
+            // Google will refuse to issue an access token if the exact URL used to invoke this function
+            // isn't included in the next API call
             //
             let redirect_uri =
-              (origin ? urlBase(origin) + '/' + event.requestContext.stage : baseUrl(event)) + event.path
+              (origin ? urlBase(origin) : "https://" + event.headers.host) + event.rawPath
 
             //
             // Use the authorization code in combination with the client secret given to this application by Google to
@@ -302,7 +303,7 @@ exports.handler = ensureSession( async (event, context) => {
     if (origin) {
       state.status = 302
       state.headers = {
-        'Location': origin
+        'location': origin
       }
     } else
       state.status = 200

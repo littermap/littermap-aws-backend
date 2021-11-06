@@ -175,7 +175,5 @@ exports.handler = ensureSession( async (event, context) => {
     }
   }
 
-  state.status = state.status || 201 // "New resource created"
-
-  return done(state)
+  return done(state, 201)
 } )
