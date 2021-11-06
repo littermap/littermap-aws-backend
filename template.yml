@@ -50,6 +50,29 @@ Resources:
     Metadata:
       BuildMethod: makefile
 
+  DefaultFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: default-response
+      Description: Lets you know you've reached an invalid endpoint
+      InlineCode: |-
+        exports.handler = async () => {
+          return {
+            statusCode: 404,
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              message: "This endpoint does not exist. Please pick up that litter."
+            })
+          }
+        }
+      Events:
+        Default:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref API
+
   LogEventFunction:
     Type: AWS::Serverless::Function
     Properties:
