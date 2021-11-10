@@ -243,7 +243,7 @@ To learn more about the deployment process and options run:
   - `sam build && sam deploy -g`
   - `sam build && sam deploy --no-confirm-changeset`
 
-- Test javascript code with `./manage lint` before deploying functions
+- Check javascript code for errors with `./manage lint` before deploying changes to functions
 - Colorize JSON output with `jq`, for example: `./manage api-export | jq .`
 
 ## Knowledge resources
@@ -347,7 +347,6 @@ Auxiliary database used for event logging
 - [Sharp edges in serverless](http://blog.ryangreen.ca/2019/06/18/in-the-cloud-beware-of-sharp-edges-for-there-are-many/)
 - [In-depth API gateway configuration](https://nickolaskraus.org/articles/creating-an-amazon-api-gateway-with-a-mock-integration-using-cloudformation/)
 - [Understanding the basics of Cross Origin Resource Sharing policies](https://javascript.plainenglish.io/understanding-the-basics-to-fetch-credentials-863b25968ed5)
-- [Using boolean parameters in CloudFormation stack](https://www.awholenother.com/2020/06/20/boolean-parameters-in-cloudformation.html)
 - [S3 bucket restrictions and limitations](https://docs.aws.amazon.com/AmazonS3/latest/userguide/BucketRestrictions.html)
 
 ### More information
