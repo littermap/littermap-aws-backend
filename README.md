@@ -179,6 +179,10 @@ To connect to the database and use it directly, first look up the database user 
 
 - `./manage list-functions | grep PASS | sort -u`
 
+or
+
+- `./manage list-stack-params | grep -i pass`
+
 Get the host address with:
 
 - `./manage list-rds-db-endpoints`

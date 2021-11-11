@@ -89,7 +89,15 @@ case $1 in
     ;;
 
   "list-stacks" )
-    aws cloudformation describe-stacks --output json
+    aws cloudformation describe-stacks --output json | jq -r '.Stacks[].StackName'
+    ;;
+
+  "list-stack-params" ) # args: [stack-name]
+    aws cloudformation describe-stacks --stack-name ${2:-$(get_stack_name)} | jq -r 'try(.Stacks[0].Parameters[]) | "\(.ParameterKey)=\(.ParameterValue)"'
+    ;;
+
+  "list-stack-outputs" ) # args: [stack-name]
+    aws cloudformation describe-stacks --stack-name ${2:-$(get_stack_name)} | jq -r 'try(.Stacks[0].Outputs)'
     ;;
 
   "function-run" ) # args: func-name, [...params]
