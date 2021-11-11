@@ -790,8 +790,8 @@ Parameters:
     Description: Enable global delivery with CloudFront
     Type: Number
     AllowedValues:
-      - 1
       - 0
+      - 1
     Default: 1
 
 Conditions:

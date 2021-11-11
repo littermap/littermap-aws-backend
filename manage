@@ -41,21 +41,21 @@ case $1 in
     ;;
 
   "list-apis" )
-    aws apigateway get-rest-apis --output json
+    aws apigatewayv2 get-apis --output json
     ;;
 
   "list-api-ids" )
-    $0 list-apis | jq -r ".items[].id"
+    $0 list-apis | jq -r ".Items[].ApiId"
     ;;
 
   "list-api-stages" ) # args: [api-id]
     api=${2:-$($0 list-api-ids | head -1)}
-    aws apigateway get-stages --rest-api-id $api
+    aws apigatewayv2 get-stages --api-id $api
     ;;
 
   "list-api-stage-names" ) # args: [api-id]
     api=${2:-$($0 list-api-ids | head -1)}
-    $0 list-api-stages $api | jq -r '.item[] | .stageName'
+    $0 list-api-stages $api | jq -r '.Items[] | .StageName'
     ;;
 
   "list-api-urls" )
@@ -276,7 +276,7 @@ case $1 in
     out=$(mktemp)
     api=${2:-$($0 list-api-ids | head -1)}
     stage=${3:-$($0 list-api-stage-names $api | head -1)}
-    aws apigateway get-export --rest-api-id $api --stage-name $stage --export-type oas30 $out
+    aws apigatewayv2 export-api --api-id $api --stage-name $stage --specification OAS30 --output-type=YAML $out
 
     cat $out
     ;;
