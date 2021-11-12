@@ -4,16 +4,31 @@
 # Unauthorized use is prohibited.
 #
 
-region=$(aws configure get region)
+get_config() {
+  # Read configuration parameter
+  echo $(cat samconfig.toml | grep -Po "(?<=$1 = \\\").+(?=\\\")")
+}
 
-if [[ $region == "" ]] ; then
+profile=$(get_config profile)
+
+if [[ $profile = "" ]]; then
+  echo "Please set your AWS profile for this deployment in samconfig.toml"
+  exit 1
+fi
+
+region=$(get_config region)
+
+if [[ $region = "" ]]; then
   echo "Please configure your AWS deployment region by running: aws configure"
   exit 1
 fi
 
 nargs=$#
 
-if [[ nargs -eq 0 ]]; then
+# Use AWS under an explicitly given profile
+aws="aws --profile $profile"
+
+if [ $nargs -eq 0 ]; then
   echo "Available commmands (look inside the script to get a better idea of what they do):"
   echo
 
@@ -26,6 +41,8 @@ if [[ nargs -eq 0 ]]; then
     echo -ne "- \e[1;37m$(echo $i | cut -d\" -f 2)\e[0m"
     echo -e "\e[33m$(echo $i | awk -F '# args:' '{print $2}')\e[0m"
   done
+
+  exit
 fi
 
 args () {
@@ -35,17 +52,13 @@ args () {
   fi
 }
 
-get_stack_name () {
-  grep stack_name samconfig.toml | cut -d\" -f 2
-}
-
 case $1 in
   "list-functions" )
-    aws lambda list-functions --output json
+    $aws lambda list-functions --output json
     ;;
 
   "list-apis" )
-    aws apigatewayv2 get-apis --output json
+    $aws apigatewayv2 get-apis --output json
     ;;
 
   "list-api-ids" )
@@ -54,7 +67,7 @@ case $1 in
 
   "list-api-stages" ) # args: [api-id]
     api=${2:-$($0 list-api-ids | head -1)}
-    aws apigatewayv2 get-stages --api-id $api
+    $aws apigatewayv2 get-stages --api-id $api
     ;;
 
   "list-api-stage-names" ) # args: [api-id]
@@ -71,7 +84,7 @@ case $1 in
     ;;
 
   "list-rds-dbs" )
-    aws rds describe-db-instances --output json
+    $aws rds describe-db-instances --output json
     ;;
 
   "list-rds-db-ids" )
@@ -83,25 +96,25 @@ case $1 in
     ;;
 
   "list-rds-postgres-versions" )
-    for ver in $(aws rds describe-db-engine-versions --engine postgres --query "DBEngineVersions[].EngineVersion" --output=text); do
+    for ver in $($aws rds describe-db-engine-versions --engine postgres --query "DBEngineVersions[].EngineVersion" --output=text); do
       echo $ver
     done
     ;;
 
   "list-rds-db-instance-options" )
-    aws rds describe-orderable-db-instance-options --engine postgres --engine-version 13.3 --query "*[].{DBInstanceClass:DBInstanceClass,StorageType:StorageType}|[?StorageType=='gp2']|[].{DBInstanceClass:DBInstanceClass}" --output text
+    $aws rds describe-orderable-db-instance-options --engine postgres --engine-version 13.3 --query "*[].{DBInstanceClass:DBInstanceClass,StorageType:StorageType}|[?StorageType=='gp2']|[].{DBInstanceClass:DBInstanceClass}" --output text
     ;;
 
   "list-stacks" )
-    aws cloudformation describe-stacks --output json | jq -r '.Stacks[].StackName'
+    $aws cloudformation describe-stacks --output json | jq -r '.Stacks[].StackName'
     ;;
 
   "list-stack-params" ) # args: [stack-name]
-    aws cloudformation describe-stacks --stack-name ${2:-$(get_stack_name)} | jq -r 'try(.Stacks[0].Parameters[]) | "\(.ParameterKey)=\(.ParameterValue)"'
+    $aws cloudformation describe-stacks --stack-name ${2:-$(get_config stack_name)} | jq -r 'try(.Stacks[0].Parameters[]) | "\(.ParameterKey)=\(.ParameterValue)"'
     ;;
 
   "list-stack-outputs" ) # args: [stack-name]
-    aws cloudformation describe-stacks --stack-name ${2:-$(get_stack_name)} | jq -r 'try(.Stacks[0].Outputs)'
+    $aws cloudformation describe-stacks --stack-name ${2:-$(get_config stack_name)} | jq -r 'try(.Stacks[0].Outputs)'
     ;;
 
   "function-run" ) # args: func-name, [...params]
@@ -111,7 +124,7 @@ case $1 in
     shift 2
 
     out=$(mktemp)
-    res=$(aws lambda invoke --function-name $name --log-type Tail $out "$@")
+    res=$($aws lambda invoke --function-name $name --log-type Tail $out "$@")
 
     echo Execution status:
     echo
@@ -134,14 +147,14 @@ case $1 in
   "function-logs" ) # args: func-name
     args 1
 
-    logstreams=$(aws logs describe-log-streams --log-group-name "/aws/lambda/$2" --query 'logStreams[*].logStreamName' | jq -r '.[-1]')
+    logstreams=$($aws logs describe-log-streams --log-group-name "/aws/lambda/$2" --query 'logStreams[*].logStreamName' | jq -r '.[-1]')
 
-    if [ -z $logstreams ] ; then
+    if [ -z $logstreams ]; then
       echo
       echo "No logs for this function"
     else
       for i in $logstreams; do
-        aws logs get-log-events --log-group-name "/aws/lambda/$2" --log-stream-name $i | jq '.events[]'
+        $aws logs get-log-events --log-group-name "/aws/lambda/$2" --log-stream-name $i | jq '.events[]'
       done
     fi
     ;;
@@ -166,7 +179,7 @@ case $1 in
     fi
 
     if [ -n "$id" ]; then
-      aws rds $2 --db-instance-identifier $id
+      $aws rds $2 --db-instance-identifier $id
     else
       exit 1
     fi
@@ -177,7 +190,7 @@ case $1 in
       id="--db-instance-identifier $2"
     fi
 
-    res=$(aws rds describe-db-instances $id)
+    res=$($aws rds describe-db-instances $id)
 
     echo $(echo $res | jq -r '.DBInstances[].DBName'): $(echo $res | jq -r '.DBInstances[].DBInstanceStatus')
     ;;
@@ -240,29 +253,29 @@ case $1 in
     ;;
 
   "rds-db-get-security-group" )
-    aws rds describe-db-instances | jq -r ".DBInstances[].VpcSecurityGroups[].VpcSecurityGroupId"
+    $aws rds describe-db-instances | jq -r ".DBInstances[].VpcSecurityGroups[].VpcSecurityGroupId"
     ;;
 
   "rds-db-authorize-ingress" )
     sg=$($0 rds-db-get-security-group)
-    aws ec2 authorize-security-group-ingress --group-id $sg --protocol tcp --port 5432 --cidr 0.0.0.0/0
+    $aws ec2 authorize-security-group-ingress --group-id $sg --protocol tcp --port 5432 --cidr 0.0.0.0/0
     ;;
 
   "rds-db-deauthorize-ingress" )
     sg=$($0 rds-db-get-security-group)
-    aws ec2 revoke-security-group-ingress --group-id $sg --protocol tcp --port 5432 --cidr 0.0.0.0/0
+    $aws ec2 revoke-security-group-ingress --group-id $sg --protocol tcp --port 5432 --cidr 0.0.0.0/0
     ;;
 
   "s3-list-object-tags" ) # args: bucket-name object-key
-    aws s3api get-object-tagging --bucket $2 --key $3
+    $aws s3api get-object-tagging --bucket $2 --key $3
     ;;
 
   "s3-delete-all" ) # args: bucket-name
-    aws s3 rm s3://$2 --recursive
+    $aws s3 rm s3://$2 --recursive
     ;;
 
   "event-log-table-info" )
-    aws dynamodb describe-table --table-name littermap-events
+    $aws dynamodb describe-table --table-name littermap-events
     ;;
 
   "event-log-table-schema" )
@@ -273,28 +286,28 @@ case $1 in
     # Convert today or given UTC date to epoch time
     date=$(date --date=${2:-$(date --utc +"%Y-%m-%d")} --utc +%s)
 
-    aws dynamodb query --table-name event-log --key-condition-expression 'date_key = :date' --expression-attribute-values "{\":date\": {\"S\": \"$date\"}}" --scan-index-forward | jq -r '.Items[] | [.timestamp.S, .event.M.message.S] | join(" :: ")'
+    $aws dynamodb query --table-name event-log --key-condition-expression 'date_key = :date' --expression-attribute-values "{\":date\": {\"S\": \"$date\"}}" --scan-index-forward | jq -r '.Items[] | [.timestamp.S, .event.M.message.S] | join(" :: ")'
     ;;
 
   "stack-cancel-update" ) # args: [stack-name]
-    aws cloudformation cancel-update-stack --stack-name ${2:-$(get_stack_name)}
+    $aws cloudformation cancel-update-stack --stack-name ${2:-$(get_config stack_name)}
     ;;
 
   "stack-delete" ) # args: [stack-name]
-    sam delete --stack-name ${2:-$(get_stack_name)}
+    sam delete --stack-name ${2:-$(get_config stack_name)}
     ;;
 
   "api-export" ) # args: [api-id] [stage]
     out=$(mktemp)
     api=${2:-$($0 list-api-ids | head -1)}
     stage=${3:-$($0 list-api-stage-names $api | head -1)}
-    aws apigatewayv2 export-api --api-id $api --stage-name $stage --specification OAS30 --output-type=YAML $out
+    $aws apigatewayv2 export-api --api-id $api --stage-name $stage --specification OAS30 --output-type=YAML $out
 
     cat $out
     ;;
 
   "make-password" )
-    aws secretsmanager get-random-password --output=text
+    $aws secretsmanager get-random-password --output=text
     ;;
 
   "make-rds-db-password" )
@@ -308,17 +321,17 @@ case $1 in
 
     if [ -z $service ]; then
       # List services with service quotas
-      aws service-quotas list-services | jq -r ".Services[].ServiceCode"
+      $aws service-quotas list-services | jq -r ".Services[].ServiceCode"
     else
-      aws service-quotas list-service-quotas --service-code $service
+      $aws service-quotas list-service-quotas --service-code $service
     fi
     ;;
 
   "lint" )
-    if ! command -v jshint &>/dev/null ; then
+    if ! command -v jshint &>/dev/null; then
       echo Install jshint to use this command
     else
-      jshint $(find functions/ -name '*.js')
+      jshint $(find {functions,lib}/ -name '*.js')
     fi
     ;;
 
@@ -381,7 +394,7 @@ case $1 in
     echo
     echo -n Looking for S3 bucket that hosts the website...
 
-    bucket=$(aws s3 ls | grep website | awk '{ print $3 }')
+    bucket=$($aws s3 ls | grep website | awk '{ print $3 }')
 
     if [ "$bucket" = "" ]; then
       echo " not found."
@@ -397,8 +410,8 @@ case $1 in
     echo Uploading files to S3 bucket: $bucket
     echo
 
-    aws s3 sync --acl public-read --cache-control 'max-age=604800' build/ s3://$bucket --exclude index.html
-    aws s3 sync --acl public-read --cache-control 'no-cache'       build/ s3://$bucket
+    $aws s3 sync --acl public-read --cache-control 'max-age=604800' build/ s3://$bucket --exclude index.html
+    $aws s3 sync --acl public-read --cache-control 'no-cache'       build/ s3://$bucket
 
     echo
     echo Website files published to: https://$bucket.s3.amazonaws.com

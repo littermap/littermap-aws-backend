@@ -46,9 +46,9 @@ With this information on hand, configure the aws-cli utility with the access key
 
 - `aws configure`
 
-If you've already done that before for another deployment, take a look at [named profiles](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html).
-
 Your credentials will now be stored in a local file `~/.aws/credentials` and the AWS command line tools will now be able to execute commands on behalf of this account.
+
+If you've already done that before (e.g., in the context of another deployment), take a look at how to create and switch between [named profiles](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html). It is assumed that separate instances (testing, staging, production) will be deployed under their own separate user accounts.
 
 ### Deploying the serverless stack
 

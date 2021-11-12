@@ -1,9 +1,33 @@
 #!/usr/bin/env bash
 
-echo Setting up configuration files...
+profiles=$(cat ~/.aws/credentials | grep -Po '(?<=^\[).+(?=\]$)')
+
+if [ ${#profiles} -eq 0 ]; then
+  echo No AWS profiles defined in ~/.aws/credentials
+  echo
+  echo Please first configure your profile with \`aws configure\`
+
+  exit 1
+fi
+
+echo Your configured AWS profiles:
+echo
+echo "$profiles"
+echo
+echo Which AWS profile would you like to use for deployment?
+echo
+
+read -p "> " profile
+
+echo
+echo Using profile: $profile
+echo
+echo Setting up initial configuration...
 echo
 
 cp -v .config-templates/* .
+
+echo profile = \"$profile\" >> samconfig.toml
 
 echo
 echo -n "Generating strong passwords for database access and administration"
@@ -18,3 +42,5 @@ p3="DBReaderPassword=\\\"$(pw)\\\"" && echo -n .
 
 echo parameter_overrides = \"$p1 $p2 $p3\" >> samconfig.toml
 echo \ done
+echo
+echo Created: samconfig.toml
