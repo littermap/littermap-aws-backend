@@ -80,6 +80,10 @@ Take note of the `geometry_type_oid` value in the output. It is necessary to pro
 
 - `sam deploy -g`
 
+If you forget the oid, you can get it again by running:
+
+- `./manage rds-db-run "SELECT oid FROM pg_type WHERE typname='geometry';" reader`
+
 ### Configuring "Sign-in with Google" integration
 
 - [Register](https://console.cloud.google.com/apis/credentials/consent/) this application with Google's API services and configure the consent screen details
@@ -296,6 +300,7 @@ Used as the main database to store global locations
 - [Using transaction blocks in PostgreSQL](https://www.postgresql.org/docs/current/sql-begin.html)
 - [Connecting to Postgres using node-postgres](https://node-postgres.com/features/connecting)
 - [Suggestions on what not to do with PostgreSQL](https://shabaam.co/postgresql-now-utc/)
+- [How spatial indexes work in PostGIS](https://postgis.net/workshops/postgis-intro/indexing.html#how-spatial-indexes-work)
 - [Scaling your Amazon RDS instance](https://aws.amazon.com/blogs/database/scaling-your-amazon-rds-instance-vertically-and-horizontally/)
 - [RDS multi availability zone deployments](https://aws.amazon.com/rds/features/multi-az/)
 
@@ -394,5 +399,6 @@ Auxiliary database used for event logging
 - [Your RDS database instances](https://console.aws.amazon.com/rds/home#databases:)
 - [CloudWatch logs](https://console.aws.amazon.com/cloudwatch/home#logsV2:log-groups)
 - [Identity and Access Management](https://console.aws.amazon.com/iam/)
-- [Google account app permissions](https://myaccount.google.com/permissions)
+- [Configure your Google API credentials](https://console.cloud.google.com/apis/credentials)
+- [Manage apps that can access your Google account](https://myaccount.google.com/permissions)
 - [Markdown previewer](https://mdpreviewer.github.io/)

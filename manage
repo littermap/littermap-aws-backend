@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+#
+# Unauthorized use is prohibited.
+#
+
 region=$(aws configure get region)
 
 if [[ $region == "" ]] ; then
@@ -107,11 +111,11 @@ case $1 in
     shift 2
 
     out=$(mktemp)
-    res=$(aws lambda invoke --function-name $name $out "$@")
+    res=$(aws lambda invoke --function-name $name --log-type Tail $out "$@")
 
     echo Execution status:
     echo
-    echo $res | jq .
+    echo $res | jq '.LogResult=(.LogResult | @base64d | gsub("[\t\n]$";"") | gsub("\t";"\n  ") | split("\n"))'
     echo
     echo Function response: [raw: $out]
     echo
