@@ -17,7 +17,7 @@ Cloud native back-end for the [Litter Map](https://github.com/earthstewards/litt
 - [jq](https://stedolan.github.io/jq/) (1.5 or later) (for parsing JSON)
 - [yarn](https://yarnpkg.com/) (for nodejs dependencies)
 - [jshint](https://github.com/jshint/jshint/blob/master/docs/install.md) for linting JavaScript
-- [docker](https://docs.docker.com/get-docker/) (for simulating the infrastructure to test functions locally)
+- [docker](https://docs.docker.com/get-docker/) (newer is better) (for simulating the live infrastructure to test functions locally and to build native lambda releases)
 
 ## Software involved
 
@@ -26,9 +26,16 @@ Cloud native back-end for the [Litter Map](https://github.com/earthstewards/litt
 ## Useful utilities
 
 - [awslogs](https://github.com/jorgebastida/awslogs) or [apilogs](https://github.com/rpgreen/apilogs) for viewing AWS logs
+- [s3cmd](https://github.com/s3tools/s3cmd) for interacting with S3
 - [httpie](https://httpie.io/docs) for making HTTP requests
+- [dive](https://github.com/wagoodman/dive) for inspecting docker images
+- [shellcheck](https://github.com/koalaman/shellcheck) for vetting shell code
 - [cookie editor](https://cookie-editor.cgagnier.ca/)
 - [geocode](https://github.com/alexreisner/geocoder#command-line-interface) utility for address lookups from the command line
+
+### Mobile apps
+
+- [AWS Console](https://play.google.com/store/apps/details?id=com.amazon.aws.console.mobile) (Android)
 
 ## How to deploy
 
@@ -48,7 +55,9 @@ With this information on hand, configure the aws-cli utility with the access key
 
 Your credentials will now be stored in a local file `~/.aws/credentials` and the AWS command line tools will now be able to execute commands on behalf of this account.
 
-If you've already done that before (e.g., in the context of another deployment), take a look at how to create and switch between [named profiles](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html). It is assumed that separate instances (testing, staging, production) will be deployed under their own separate user accounts.
+If you've already done that before (e.g., in the context of another deployment), take a look at how to create and switch between [named profiles](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html). It is assumed that separate instances (testing, staging, production) will be deployed under their own separate user accounts. In this case, run:
+
+- `aws configure --profile <profile-name>`
 
 ### Deploying the serverless stack
 
@@ -96,6 +105,52 @@ If you forget the oid, you can get it again by running:
   - E.g., `https://91kfuezk29.execute-api.us-east-1.amazonaws.com/api/auth/google` (for testing the API directly)
 - Take note of the issued `Client ID` and `Client Secret` values
 - Update the stack deployment with `sam deploy -g` and specify those values when prompted
+
+<a name="binary-lambdas"></a>
+### Building and deploying native binary lambda functions
+
+Each lambda function is packaged and deployed as a separate service, which means they do not all have to be implemented using the same technology stack. While a lambda function that is written entirely in one of the supported interpreted languages (JavaScript, Python, Ruby) requires a remote machine equipped with the appropriate runtime interpreter to execute it, a native lambda is designed to be run directly by the CPU. If the lambda function executable or any of its dependencies need to be provided as a binary, it will need to be built and packaged.
+
+To provide a native binary lambda deployment package, there are two options:
+
+#### Provide a built package
+
+There is currently one native lambda that needs to be deployed:
+
+- `get-scaled-image` (it is currently experimental)
+
+If you have a built package ready, just place `get-scaled-image.zip` into `functions/get-scaled-image/build/`. The directory may need to be created.
+
+#### Build it
+
+Native lambdas can be built inside a specialized [container](https://docs.docker.com/get-started/#what-is-a-container) that contains the appropriate reproducible build environment that is isolated from your host system.
+
+Make sure you've got Docker installed.
+
+The build environment can be built for one of two 64-bit CPU architectures: `x86` or `arm`. Since all deployed lambda functions are currently set to require the newer ARM CPU (due to their [cost effectiveness](https://aws.amazon.com/blogs/aws/aws-lambda-functions-powered-by-aws-graviton2-processor-run-your-functions-on-arm-and-get-up-to-34-better-price-performance/)), to build a package that will run when deployed, the appropriate environment must be built.
+
+Currently, the only available build environment [prototype](https://conetix.com.au/blog/what-is-a-dockerfile/) is for building lambdas from C++ source code using the official [AWS C++ SDK](https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/getting-started.html) and [AWS C++ Runtime API](https://github.com/awslabs/aws-lambda-cpp) libraries. It also includes the [vips](https://github.com/libvips/libvips) high performance image processing library. Other build environments can be added for lambdas that are based on other technology stacks.
+
+Either environment (or both) can be built with:
+
+- `./manage make-cpp-build-environment arm`
+- `./manage make-cpp-build-environment x86`
+
+If your host machine is one or the other and the architecture is not specified it will build for the one you've got.
+
+Even if the deployed lambdas are specified to require an `arm` machine, an `x86` build environment can be used to either quickly check if your lambda compiles on an `x86` machine (if that's your native host architecture, that's much faster) or to deploy an `x86` lambda.
+
+If this isn't your host machine's native architecture, Docker will run it using [user space emulation](https://github.com/multiarch/qemu-user-static) and building the image may take an hour or longer. If it doesn't work out of the box, it may require having [qemu](https://www.qemu.org/) installed along with [binary format support](https://www.ecliptik.com/Cross-Building-and-Running-Multi-Arch-Docker-Images/#qemu-on-linux).
+
+Once you have one or both of these environments built, they should be visible with:
+
+- `docker images`
+
+Now, to build `get-scaled-image` for the `arm` architecture:
+
+- `./manage build-cpp-function get-scaled-image arm`
+
+If the build process completes successfully, it will produce a deployment-ready zip package at `functions/get-scaled-image/build/get-scaled-image.zip`.
 
 ### Deploying the front-end
 
@@ -215,13 +270,13 @@ If that doesn't go smoothly, troubleshoot the issue or delete the stack in the [
 
 ## Development
 
-After making any changes to the code, run:
+The general procedure for changeset deployment after making changes is:
 
-- `sam build`
+- `sam build && sam deploy`
 
-To deploy changes, run:
+For a better understanding, read:
 
-- `sam deploy`
+- `sam build --help`
 
 ### Modifying the serverless stack definition
 
@@ -243,7 +298,25 @@ To learn more about the deployment process and options run:
 - `sam build -h`
 - `sam deploy -h`
 
-## Development tips
+### tl;dr
+
+#### Did you change the template code?
+
+- `sam build && sam deploy`
+
+#### Did you change the JavaScript?
+
+- `sam deploy`
+
+#### Did you update a native binary lambda function?
+
+- See: [Building native lambda functions](#binary-lambdas)
+
+#### Need to adjust a stack configration parameter?
+
+- `sam deploy -g`
+
+### Tips
 
 - For quick iteration, create shell aliases for:
 
@@ -273,7 +346,7 @@ To learn more about the deployment process and options run:
 - [Understanding database options for your serverless web applications](https://awsfeed.com/whats-new/compute/understanding-database-options-for-your-serverless-web-applications)
 - [What can be done with serverless lambda functions](https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-features.html)
 - [5 AWS mistakes you should avoid](https://cloudonaut.io/5-aws-mistakes-you-should-avoid/)
-- [AWS Lambda execution context demystified](https://blog.ippon.tech/lambda-execution-context-demystified/)
+- [Lambda execution environment](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-context.html)
 - [Using AWS Web Application Firewall to protect your APIs](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-control-access-aws-waf.html)
 - [Amazon Web Services: Overview of Security Processes](https://tdcontent.techdata.com/techsolutions/security/assets/files/aws-overview-security-processes.pdf) [pdf]
 - [AWS fundamentals cheatsheet](https://github.com/agavrel/aws_fundamentals_cheatsheet)
@@ -336,6 +409,8 @@ Auxiliary database used for event logging
 - [AWS API gateway permission to invoke Lambda functions](https://medium.com/@jun711.g/aws-api-gateway-invoke-lambda-function-permission-6c6834f14b61)
 - [Correctly invoke HTTP from AWS Lambda without waiting](https://www.sensedeep.com/blog/posts/stories/lambda-fast-http.html)
 - [Sharing code between Lambda functions using Layers](https://www.jijutm.com/aws/refactored-a-lambda-heap-to-use-layers/)
+- [Writing Lambda functions in C++](https://aws.amazon.com/blogs/compute/introducing-the-c-lambda-runtime/)
+- [Enabling AVX2 advanced vector instructions in Lambda](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-avx2.html)
 - [Overview of user authentication with OAuth](https://www.nylas.com/blog/integrate-google-oauth)
 - [Implementing OAuth2 authentication](https://discordjs.guide/oauth2/#a-quick-example)
 - [Enable user file uploads with S3 POST signed URLs](https://advancedweb.hu/how-to-use-s3-post-signed-urls/)
@@ -345,6 +420,7 @@ Auxiliary database used for event logging
 ### General articles
 
 - [Programming vs software engineering](https://swizec.com/blog/what-i-learned-from-software-engineering-at-google/)
+- [Software development and deployment best practices](https://12factor.net/)
 
 ### Technical articles
 
@@ -357,6 +433,9 @@ Auxiliary database used for event logging
 - [In-depth API gateway configuration](https://nickolaskraus.org/articles/creating-an-amazon-api-gateway-with-a-mock-integration-using-cloudformation/)
 - [Understanding the basics of Cross Origin Resource Sharing policies](https://javascript.plainenglish.io/understanding-the-basics-to-fetch-credentials-863b25968ed5)
 - [S3 bucket restrictions and limitations](https://docs.aws.amazon.com/AmazonS3/latest/userguide/BucketRestrictions.html)
+- [Safer bash scripts with failure mode flags](https://vaneyckt.io/posts/safer_bash_scripts_with_set_euxo_pipefail/)
+- [Docker containers and the ability to run images built for foreign architectures](https://dbhi.github.io/qus/)
+- [Dockerfile best practices](https://docs.docker.com/develop/develop-images/dockerfile_best-practices/)
 
 ### More information
 

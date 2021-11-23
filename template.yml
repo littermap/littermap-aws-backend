@@ -18,6 +18,8 @@ Globals:
     Handler: index.handler
     Runtime: nodejs14.x
     CodeUri: functions
+    Architectures:
+      - arm64 # Choose the ARM processor (lower cost)
 
 Resources:
   API:
@@ -72,6 +74,26 @@ Resources:
           Type: HttpApi
           Properties:
             ApiId: !Ref API
+
+  ResizeImageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: resize
+      Description: Serve a resized image from the media bucket
+      CodeUri: functions/get-scaled-image/build/get-scaled-image.zip
+      Handler: get-scaled-image
+      Runtime: provided.al2 # Only Amazon Linux 2 supports ARM binaries
+      Role: !GetAtt ResizeImageFunctionRole.Arn
+      Environment:
+        Variables:
+          MEDIA_BUCKET: !Ref MediaBucket
+      Events:
+        Resize:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref API
+            Path: /resize
+            Method: GET
 
   LogEventFunction:
     Type: AWS::Serverless::Function
@@ -192,10 +214,6 @@ Resources:
             ApiId: !Ref API
             Path: /login/{service}
             Method: GET
-            # RequestParameters:
-            #   - method.request.path.service:
-            #       Required: true
-            #       Caching: false
         Logout:
           Type: HttpApi
           Properties:
@@ -294,6 +312,21 @@ Resources:
           DB_READER_PASSWORD: !Ref DBReaderPassword
     Metadata:
       BuildMethod: makefile
+
+  ResizeImageFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+               - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
 
   AddLocationFunctionRole:
     Type: AWS::IAM::Role
@@ -474,6 +507,21 @@ Resources:
         - Ref: AuthFunctionRole
         - Ref: AddLocationFunctionRole
 
+  AllowGetPutMediaPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: allow-get-put-media
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - s3:GetObject
+              - s3:PutObject
+            Resource: !Sub "arn:aws:s3:::${MediaBucket}/*"
+            Effect: Allow
+      Roles:
+        - Ref: ResizeImageFunctionRole
+
   AllowPutMediaPolicy:
     Type: AWS::IAM::Policy
     Properties:
@@ -585,6 +633,16 @@ Resources:
             TagFilters:
               - Key: verified
                 Value: false
+      WebsiteConfiguration:
+        RoutingRules:
+          - RoutingRuleCondition:
+              HttpErrorCodeReturnedEquals: 403 # The bucket is set to private, so a miss will result in a 403
+              KeyPrefixEquals: media/
+            RedirectRule:
+              HostName: !Sub "https://${API}.execute-api.${AWS::Region}.${AWS::URLSuffix}" # !GetAtt WebsiteDelivery.DomainName
+              HttpRedirectCode: 307
+              Protocol: https
+              ReplaceKeyPrefixWith: !Sub "${APIStageName}/resize?object=/media/"
       CorsConfiguration:
         CorsRules:
           - AllowedHeaders:
@@ -619,15 +677,15 @@ Resources:
               HTTPSPort: 443
               OriginProtocolPolicy: https-only
           - Id: Media
-            DomainName: !GetAtt MediaBucket.RegionalDomainName
-            S3OriginConfig:
-              OriginAccessIdentity: "" # Specify this to restrict direct access to the S3 bucket
+            DomainName: !Sub ${MediaBucket}.s3-website-${AWS::Region}.amazonaws.com
+            CustomOriginConfig:
+              OriginProtocolPolicy: http-only # S3 "web" server only supports plain HTTP
             ConnectionAttempts: 2
             ConnectionTimeout: 2
           - Id: FrontendApplication
             DomainName: !Sub ${WebsiteBucket}.s3-website-${AWS::Region}.amazonaws.com
             CustomOriginConfig:
-              OriginProtocolPolicy: http-only # S3 "website" origin only supports HTTP
+              OriginProtocolPolicy: http-only # S3 "web" server only supports plain HTTP
             ConnectionAttempts: 1
             ConnectionTimeout: 2
         CacheBehaviors:

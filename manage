@@ -6,7 +6,7 @@
 
 get_config() {
   # Read configuration parameter
-  echo $(cat samconfig.toml | grep -Po "(?<=$1 = \\\").+(?=\\\")")
+  grep -Po "(?<=$1 = \\\").+(?=\\\")" samconfig.toml
 }
 
 profile=$(get_config profile)
@@ -28,25 +28,32 @@ nargs=$#
 # Use AWS under an explicitly given profile
 aws="aws --profile $profile"
 
+check_installed() {
+  if ! command -v "$1" &>/dev/null; then
+    echo "Install $1: $2"
+    exit 1
+  fi
+}
+
 if [ $nargs -eq 0 ]; then
-  echo "Available commmands (look inside the script to get a better idea of what they do):"
+  echo "Available commands (look inside the script to get a better idea of what they do):"
   echo
 
   # Finds the commands by inspecting the code
 
-  list=$(grep '"[^"]\+" '$'\051' $0)
+  list=$(grep '"[^"]\+" '$'\051' "$0")
 
   IFS=$'\n'
   for i in $list; do
-    echo -ne "- \e[1;37m$(echo $i | cut -d\" -f 2)\e[0m"
-    echo -e "\e[33m$(echo $i | awk -F '# args:' '{print $2}')\e[0m"
+    echo -ne "- \e[1;37m$(echo "$i" | cut -d\" -f 2)\e[0m"
+    echo -e "\e[33m$(echo "$i" | awk -F '# args:' '{print $2}')\e[0m"
   done
 
   exit
 fi
 
 args () {
-  if [[ $(($nargs-1)) -lt $1 ]]; then
+  if [[ $((nargs-1)) -lt $1 ]]; then
     echo "This command requires $1 argument(s)"
     exit 1
   fi
@@ -67,18 +74,18 @@ case $1 in
 
   "list-api-stages" ) # args: [api-id]
     api=${2:-$($0 list-api-ids | head -1)}
-    $aws apigatewayv2 get-stages --api-id $api
+    $aws apigatewayv2 get-stages --api-id "$api"
     ;;
 
   "list-api-stage-names" ) # args: [api-id]
     api=${2:-$($0 list-api-ids | head -1)}
-    $0 list-api-stages $api | jq -r '.Items[] | .StageName'
+    $0 list-api-stages "$api" | jq -r '.Items[] | .StageName'
     ;;
 
   "list-api-urls" )
     for api in $($0 list-api-ids); do
-      for stage in $($0 list-api-stage-names $api); do
-        echo https://$api.execute-api.$region.amazonaws.com/$stage/
+      for stage in $($0 list-api-stage-names "$api"); do
+        echo "https://$api.execute-api.$region.amazonaws.com/$stage/"
       done
     done
     ;;
@@ -97,7 +104,7 @@ case $1 in
 
   "list-rds-postgres-versions" )
     for ver in $($aws rds describe-db-engine-versions --engine postgres --query "DBEngineVersions[].EngineVersion" --output=text); do
-      echo $ver
+      echo "$ver"
     done
     ;;
 
@@ -110,11 +117,11 @@ case $1 in
     ;;
 
   "list-stack-params" ) # args: [stack-name]
-    $aws cloudformation describe-stacks --stack-name ${2:-$(get_config stack_name)} | jq -r 'try(.Stacks[0].Parameters[]) | "\(.ParameterKey)=\(.ParameterValue)"'
+    $aws cloudformation describe-stacks --stack-name "${2:-$(get_config stack_name)}" | jq -r 'try(.Stacks[0].Parameters[]) | "\(.ParameterKey)=\(.ParameterValue)"'
     ;;
 
   "list-stack-outputs" ) # args: [stack-name]
-    $aws cloudformation describe-stacks --stack-name ${2:-$(get_config stack_name)} | jq -r 'try(.Stacks[0].Outputs)'
+    $aws cloudformation describe-stacks --stack-name "${2:-$(get_config stack_name)}" | jq -r 'try(.Stacks[0].Outputs)'
     ;;
 
   "function-run" ) # args: func-name, [...params]
@@ -124,23 +131,23 @@ case $1 in
     shift 2
 
     out=$(mktemp)
-    res=$($aws lambda invoke --function-name $name --log-type Tail $out "$@")
+    res=$($aws lambda invoke --function-name "$name" --log-type Tail "$out" "$@")
 
-    echo Execution status:
+    echo "Execution information:"
     echo
-    echo $res | jq '.LogResult=(.LogResult | @base64d | gsub("[\t\n]$";"") | gsub("\t";"\n  ") | split("\n"))'
+    echo "$res" | jq '.LogResult=(.LogResult | @base64d | gsub("[\t\n]$";"") | gsub("\t";"\n  ") | split("\n"))'
     echo
-    echo Function response: [raw: $out]
+    echo "Function response: [raw: $out]"
     echo
 
-    status=$(cat $out | jq -r '.statusCode // empty')
+    status=$(jq -r '.statusCode // empty' < "$out")
 
-    if [ -z $status ]; then
-      cat $out | jq .
+    if [ -z "$status" ]; then
+      jq . < "$out"
     else
-      echo HTTP code: $status
+      echo "HTTP code: $status"
       echo
-      cat $out | jq '.body | fromjson'
+      jq '.body | fromjson' < "$out"
     fi
     ;;
 
@@ -149,37 +156,187 @@ case $1 in
 
     logstreams=$($aws logs describe-log-streams --log-group-name "/aws/lambda/$2" --query 'logStreams[*].logStreamName' | jq -r '.[-1]')
 
-    if [ -z $logstreams ]; then
+    if [ -z "$logstreams" ]; then
       echo
       echo "No logs for this function"
     else
       for i in $logstreams; do
-        $aws logs get-log-events --log-group-name "/aws/lambda/$2" --log-stream-name $i | jq '.events[]'
+        $aws logs get-log-events --log-group-name "/aws/lambda/$2" --log-stream-name "$i" | jq '.events[]'
       done
     fi
+    ;;
+
+  "make-cpp-build-environment" ) # args: [<arm|x86>]
+    check_installed docker https://docs.docker.com/get-docker/
+
+    set -e
+
+    host_arch=$(uname -m)
+
+    case $2 in
+      "" )
+        case "$host_arch" in
+          aarch64 )
+            platform=linux/arm64
+            arch=arm
+            ;;
+
+          x86_64 )
+            platform=linux/amd64
+            arch=x86
+            ;;
+
+          * )
+            echo "Your system architecture ($host_arch) is not supported on AWS Lambda. Choose one of the supported"
+            echo "architectures to build on."
+
+            exit 1
+            ;;
+        esac
+
+        echo "Building for your native CPU architecture: 64-bit $arch"
+        echo
+        ;;
+
+      arm )
+        platform=linux/arm64
+        arch=arm
+
+        if [ "$host_arch" != "arm64" ]; then
+          echo "Not building for your native architecture (building for 64-bit $arch)"
+          echo
+        fi
+        ;;
+
+      x86 )
+        platform=linux/amd64
+        arch=x86
+
+        if [ "$host_arch" != "x86_64" ]; then
+          echo "Not building for your native architecture (building for 64-bit $arch)"
+          echo
+        fi
+        ;;
+
+      * )
+        echo "Architecture must be one of: arm|x86 (assumed 64-bit)"
+        echo
+        echo "See: https://docs.aws.amazon.com/lambda/latest/dg/foundation-arch.html"
+
+        exit 1
+        ;;
+    esac
+
+    #
+    # If the 'buildx' module is present, use it to enable use of the new BuildKit engine, which is
+    # required for cross-architecture builds. Once it becomes the standard build engine for Docker,
+    # use of the 'buildx' module will be deprecated and the module might be removed.
+    #
+    if docker buildx &>/dev/null; then
+      buildx=buildx
+    fi
+
+    old_image=$(docker images lambda-build-platform -q)
+
+    if [ -n "$old_image" ]; then
+      echo "Existing image found: $old_image"
+      echo
+    fi
+
+    echo "== Building self-contained environment for building and packaging C++ lambdas for deployment"
+    echo
+
+    # Build the Docker image that contains the build environment that is ready to build native Lambda functions
+    docker $buildx build \
+      --network host \
+      --progress plain \
+      -t lambda-build-platform \
+      --platform="$platform" \
+      build-environments/cpp
+
+    # Give the image a second tag that labels its platform type
+    docker tag lambda-build-platform "lambda-build-platform-$arch"
+
+    if [ -n "$old_image" ]; then
+      tags=$(docker image inspect "$old_image" | jq -r '.[].RepoTags[]')
+
+      if [ -z "$tags" ]; then
+        echo
+        echo "== Deleting the previously existing Docker image"
+        echo
+
+        docker rmi "$old_image"
+      fi
+    fi
+
+    echo
+    echo "== Done"
+    ;;
+
+  "build-cpp-function" ) # args: func-name [arch] [<debug|release>]
+    args 1
+
+    set -e
+
+    # You can pass "-" for 'arch' to use the default container image
+    arch=${3:--}
+
+    image=lambda-build-platform
+
+    if [ "$arch" != '-' ]; then
+      image="$image-$arch"
+    fi
+
+    # Build a debug release by default
+    build_type=${4:-debug}
+
+    # Capitalize the build type
+    build_type=${build_type^}
+
+    cd "functions/$2"
+
+    echo "Building functions/$2/src/ inside the Docker container"
+    echo
+
+    docker run \
+      --network host \
+      -it --rm \
+      -v "$(pwd)":/mnt/src \
+      -v /tmp:/mnt/out \
+      "$image" \
+      /mnt/src/build.sh "$build_type"
+
+    mkdir -p build && cp -v "/tmp/$2.zip" build/
+
+    echo
+    echo "The package is ready: functions/$2/build/$2.zip"
     ;;
 
   "rds-db-action" ) # args: action [instance-id]
     args 1
 
-    if [ -z $3 ]; then
+    #
+    # For list of possible actions: `aws rds help`
+    #
+
+    if [ -z "$3" ]; then
       ids=$($0 list-rds-db-ids)
 
-      if [ -z "$ids" ]; then
-        echo No databases found
-      elif [ $(echo "$ids" | wc -l) -gt 1 ]; then
-        echo Found more than one database, please specify an instance id:
+      if [[ -z "$ids" ]]; then
+        echo "No databases found"
+      elif [ "$(echo "$ids" | wc -l)" -gt 1 ]; then
+        echo "Found more than one database, please specify an instance id:"
         echo
         echo "$ids"
       else
         id="$ids"
       fi
     else
-      id=$3
+      id="$3"
     fi
 
     if [ -n "$id" ]; then
-      $aws rds $2 --db-instance-identifier $id
+      $aws rds "$2" --db-instance-identifier "$id"
     else
       exit 1
     fi
@@ -190,36 +347,40 @@ case $1 in
       id="--db-instance-identifier $2"
     fi
 
-    res=$($aws rds describe-db-instances $id)
+    res=$($aws rds describe-db-instances "$id")
 
-    echo $(echo $res | jq -r '.DBInstances[].DBName'): $(echo $res | jq -r '.DBInstances[].DBInstanceStatus')
+    echo "$(echo "$res" | jq -r '.DBInstances[].DBName')": "$(echo "$res" | jq -r '.DBInstances[].DBInstanceStatus')"
     ;;
 
   "rds-db-hibernate" ) # args: [instance-id]
-    status=$($0 rds-db-action stop-db-instance $2 | jq -r '.DBInstance.DBInstanceStatus')
+    set -eo pipefail
 
-    echo Status: $status
+    status="$($0 rds-db-action stop-db-instance "$2" | jq -r '.DBInstance.DBInstanceStatus')"
+
+    echo "Status: $status"
     echo
-    echo This may take a while
+    echo "This may take a while"
     echo
-    echo Check the status with: $0 rds-db-status
+    echo "Check the status with: $0 rds-db-status"
     ;;
 
   "rds-db-wake" ) # args: [instance-id]
-    status=$($0 rds-db-action start-db-instance $2 | jq -r '.DBInstance.DBInstanceStatus')
+    set -eo pipefail
 
-    echo Status: $status
+    status="$($0 rds-db-action start-db-instance "$2" | jq -r '.DBInstance.DBInstanceStatus')"
+
+    echo "Status: $status"
     echo
-    echo This may take a while
+    echo "This may take a while"
     echo
-    echo Check the status with: $0 rds-db-status
+    echo "Check the status with: $0 rds-db-status"
     ;;
 
   "rds-db-init" )
     $0 function-run db-init
 
     echo
-    echo Don\'t forget to run \`sam deploy -g\` and set the value of the geometry type OID
+    echo "Don\'t forget to run \`sam deploy -g\` and set the value of the geometry type OID"
     ;;
 
   "rds-db-run" ) # args: query, [user]
@@ -228,14 +389,17 @@ case $1 in
     # Disable filename expansion so that the SQL query will be accepted verbatim
     set -f
 
-    a1="\"query\":\"$(echo $2 | sed 's/"/\\"/g')\""
+    # Escape double quotes in the query, since it is being passed as a JSON value
+    a1="\"query\":\"${2//\"/\\\"}\""
+
+    # Include optional user parameter
     [ $# -ge 3 ] && a2=",\"user\": \"$3\""
 
     json="{$a1$a2}"
 
-    echo Invoking query function with parameters:
+    echo "Invoking query function with parameters:"
     echo
-    echo $json | jq .
+    echo "$json" | jq .
     echo
 
     $0 function-run db-run --payload "$json"
@@ -244,12 +408,12 @@ case $1 in
   "rds-db-run-file" ) # args: query-file
     args 1
 
-    echo Invoking query function with parameters:
+    echo "Invoking query function with parameters:"
     echo
-    cat $2 | jq .
+    jq . < "$2"
     echo
 
-    $0 function-run db-run --payload fileb://$2
+    $0 function-run db-run --payload "fileb://$2"
     ;;
 
   "rds-db-get-security-group" )
@@ -258,20 +422,20 @@ case $1 in
 
   "rds-db-authorize-ingress" )
     sg=$($0 rds-db-get-security-group)
-    $aws ec2 authorize-security-group-ingress --group-id $sg --protocol tcp --port 5432 --cidr 0.0.0.0/0
+    $aws ec2 authorize-security-group-ingress --group-id "$sg" --protocol tcp --port 5432 --cidr 0.0.0.0/0
     ;;
 
   "rds-db-deauthorize-ingress" )
     sg=$($0 rds-db-get-security-group)
-    $aws ec2 revoke-security-group-ingress --group-id $sg --protocol tcp --port 5432 --cidr 0.0.0.0/0
+    $aws ec2 revoke-security-group-ingress --group-id "$sg" --protocol tcp --port 5432 --cidr 0.0.0.0/0
     ;;
 
   "s3-list-object-tags" ) # args: bucket-name object-key
-    $aws s3api get-object-tagging --bucket $2 --key $3
+    $aws s3api get-object-tagging --bucket "$2" --key "$3"
     ;;
 
   "s3-delete-all" ) # args: bucket-name
-    $aws s3 rm s3://$2 --recursive
+    $aws s3 rm "s3://$2" --recursive
     ;;
 
   "event-log-table-info" )
@@ -284,26 +448,26 @@ case $1 in
 
   "event-log" ) # args: [utc-date]
     # Convert today or given UTC date to epoch time
-    date=$(date --date=${2:-$(date --utc +"%Y-%m-%d")} --utc +%s)
+    date=$(date --date="${2:-$(date --utc +"%Y-%m-%d")}" --utc +%s)
 
     $aws dynamodb query --table-name event-log --key-condition-expression 'date_key = :date' --expression-attribute-values "{\":date\": {\"S\": \"$date\"}}" --scan-index-forward | jq -r '.Items[] | [.timestamp.S, .event.M.message.S] | join(" :: ")'
     ;;
 
   "stack-cancel-update" ) # args: [stack-name]
-    $aws cloudformation cancel-update-stack --stack-name ${2:-$(get_config stack_name)}
+    $aws cloudformation cancel-update-stack --stack-name "${2:-$(get_config stack_name)}"
     ;;
 
   "stack-delete" ) # args: [stack-name]
-    sam delete --stack-name ${2:-$(get_config stack_name)}
+    sam delete --stack-name "${2:-$(get_config stack_name)}"
     ;;
 
   "api-export" ) # args: [api-id] [stage]
     out=$(mktemp)
     api=${2:-$($0 list-api-ids | head -1)}
-    stage=${3:-$($0 list-api-stage-names $api | head -1)}
-    $aws apigatewayv2 export-api --api-id $api --stage-name $stage --specification OAS30 --output-type=YAML $out
+    stage=${3:-$($0 list-api-stage-names "$api" | head -1)}
+    $aws apigatewayv2 export-api --api-id "$api" --stage-name "$stage" --specification OAS30 --output-type=YAML "$out"
 
-    cat $out
+    cat "$out"
     ;;
 
   "make-password" )
@@ -313,33 +477,28 @@ case $1 in
   "make-rds-db-password" )
     # As per documented constraints for RDS passwords, replace quotes with |,
     # @ with # and / with \, and then also escape \ as \\
-    echo $($0 make-password) | tr '/@"'"'" '\\#||' | sed 's/\\/\\\\/g'
+    $0 make-password | tr '/@"'"'" '\\#||' | sed 's/\\/\\\\/g'
     ;;
 
   "check-service-quotas" )
     service=$2
 
-    if [ -z $service ]; then
+    if [ -z "$service" ]; then
       # List services with service quotas
       $aws service-quotas list-services | jq -r ".Services[].ServiceCode"
     else
-      $aws service-quotas list-service-quotas --service-code $service
+      $aws service-quotas list-service-quotas --service-code "$service"
     fi
     ;;
 
   "lint" )
-    if ! command -v jshint &>/dev/null; then
-      echo Install jshint to use this command
-    else
-      jshint $(find {functions,lib}/ -name '*.js')
-    fi
+    check_installed jshint https://jshint.com/install/
+
+    find {functions,lib}/ -name '*.js' -print0 | xargs -0 jshint
     ;;
 
   "www-prepare" ) # args: [git-ref]
-    if ! command -v pnpm &>/dev/null; then
-      echo Please install 'pnpm': https://pnpm.io
-      exit 1
-    fi
+    check_installed pnpm https://pnpm.io
 
     ref=${2:-master}
 
@@ -349,7 +508,7 @@ case $1 in
     cd publish
     echo
 
-    git reset $ref --hard
+    git reset "$ref" --hard
     echo
 
     pnpm install
@@ -371,35 +530,34 @@ case $1 in
     echo
     git pull
     echo
-    git reset $ref --hard
+    git reset "$ref" --hard
     echo
 
     pnpm install
     echo
 
-    echo Check the configuration and then publish the website
+    echo "Check the configuration and then publish the website"
     ;;
 
   "www-publish" )
     cd publish
 
-    pnpm run build
-
-    if [ $? -ne 0 ]; then
+    if ! pnpm run build; then
       echo
-      echo Build failed
+      echo "Build failed"
+
       exit 1
     fi
 
     echo
-    echo -n Looking for S3 bucket that hosts the website...
+    echo -n "Looking for S3 bucket that hosts the website..."
 
     bucket=$($aws s3 ls | grep website | awk '{ print $3 }')
 
     if [ "$bucket" = "" ]; then
       echo " not found."
       echo
-      echo Could not publish the website because the hosting S3 bucket was not found
+      echo "Could not publish the website because the hosting S3 bucket was not found"
 
       exit 1
     else
@@ -407,17 +565,19 @@ case $1 in
       echo
     fi
 
-    echo Uploading files to S3 bucket: $bucket
+    echo "Uploading files to S3 bucket: $bucket"
     echo
 
-    $aws s3 sync --acl public-read --cache-control 'max-age=604800' build/ s3://$bucket --exclude index.html
-    $aws s3 sync --acl public-read --cache-control 'no-cache'       build/ s3://$bucket
+    $aws s3 sync --acl public-read --cache-control 'max-age=604800' build/ "s3://$bucket" --exclude index.html
+    $aws s3 sync --acl public-read --cache-control 'no-cache'       build/ "s3://$bucket"
 
     echo
-    echo Website files published to: https://$bucket.s3.amazonaws.com
+    echo "Website files published to: https://$bucket.s3.amazonaws.com"
     ;;
 
   * )
     echo "Command $1 not available"
+
+    exit 1
     ;;
 esac

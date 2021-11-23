@@ -1,5 +1,5 @@
 #
-# Quick way to copy the function scripts to the deployment directory
+# Simply copy these function sources to the deployment directory
 #
 
 build-AuthFunction:
