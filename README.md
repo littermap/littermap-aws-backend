@@ -15,6 +15,7 @@ Cloud native back-end for the [Litter Map](https://github.com/earthstewards/litt
 - [aws-cli](https://aws.amazon.com/cli/) (for making AWS requests)
 - [sam-cli](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html) (1.29.0 or later) (for managing the serverless stack deployment)
 - [jq](https://stedolan.github.io/jq/) (1.5 or later) (for parsing JSON)
+- [gnu utilities](https://wikihub.berkeley.edu/display/drupal/Install+GNU+coreutils+and+other+CLI+utilities+on+MacOS)
 - [yarn](https://yarnpkg.com/) (for nodejs dependencies)
 - [jshint](https://github.com/jshint/jshint/blob/master/docs/install.md) for linting JavaScript
 - [docker](https://docs.docker.com/get-docker/) (newer is better) (for simulating the live infrastructure to test functions locally and to build native lambda releases)

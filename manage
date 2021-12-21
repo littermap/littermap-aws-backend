@@ -4,9 +4,16 @@
 # Unauthorized use is prohibited.
 #
 
+# MacOS by default has BSD grep, and brew installs GNU grep as ggrep
+if command -v ggrep; then
+  grep="ggrep"
+else
+  grep="grep"
+fi
+
 get_config() {
   # Read configuration parameter
-  grep -Po "(?<=$1 = \\\").+(?=\\\")" samconfig.toml
+  $grep -Po "(?<=$1 = \\\").+(?=\\\")" samconfig.toml
 }
 
 profile=$(get_config profile)
