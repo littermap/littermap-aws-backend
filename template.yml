@@ -75,25 +75,25 @@ Resources:
           Properties:
             ApiId: !Ref API
 
-  ResizeImageFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: resize
-      Description: Serve a resized image from the media bucket
-      CodeUri: functions/get-scaled-image/build/get-scaled-image.zip
-      Handler: get-scaled-image
-      Runtime: provided.al2 # Only Amazon Linux 2 supports ARM binaries
-      Role: !GetAtt ResizeImageFunctionRole.Arn
-      Environment:
-        Variables:
-          MEDIA_BUCKET: !Ref MediaBucket
-      Events:
-        Resize:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref API
-            Path: /resize
-            Method: GET
+  # ScaleImageExperimentalFunction:
+  #   Type: AWS::Serverless::Function
+  #   Properties:
+  #     FunctionName: scale-image-experimental
+  #     Description: Add a scaled version of an image to the media bucket (experimental)
+  #     CodeUri: functions/scale-image-experimental/build/scale-image-experimental.zip
+  #     Handler: scale-image-experimental # The main executable inside the zip package
+  #     Runtime: provided.al2 # Amazon Linux 2 runtime is required for ARM binaries
+  #     Role: !GetAtt ScaleImageFunctionRole.Arn
+  #     Environment:
+  #       Variables:
+  #         MEDIA_BUCKET: !Ref MediaBucket
+  #     Events:
+  #       ScaleImage:
+  #         Type: HttpApi
+  #         Properties:
+  #           ApiId: !Ref API
+  #           Path: /scale-image
+  #           Method: GET
 
   LogEventFunction:
     Type: AWS::Serverless::Function
@@ -313,7 +313,7 @@ Resources:
     Metadata:
       BuildMethod: makefile
 
-  ResizeImageFunctionRole:
+  ScaleImageFunctionRole:
     Type: AWS::IAM::Role
     Properties:
       ManagedPolicyArns:
@@ -520,7 +520,7 @@ Resources:
             Resource: !Sub "arn:aws:s3:::${MediaBucket}/*"
             Effect: Allow
       Roles:
-        - Ref: ResizeImageFunctionRole
+        - Ref: ScaleImageFunctionRole
 
   AllowPutMediaPolicy:
     Type: AWS::IAM::Policy
@@ -633,16 +633,6 @@ Resources:
             TagFilters:
               - Key: verified
                 Value: false
-      WebsiteConfiguration:
-        RoutingRules:
-          - RoutingRuleCondition:
-              HttpErrorCodeReturnedEquals: 403 # The bucket is set to private, so a miss will result in a 403
-              KeyPrefixEquals: media/
-            RedirectRule:
-              HostName: !Sub "https://${API}.execute-api.${AWS::Region}.${AWS::URLSuffix}" # !GetAtt WebsiteDelivery.DomainName
-              HttpRedirectCode: 307
-              Protocol: https
-              ReplaceKeyPrefixWith: !Sub "${APIStageName}/resize?object=/media/"
       CorsConfiguration:
         CorsRules:
           - AllowedHeaders:
@@ -677,9 +667,9 @@ Resources:
               HTTPSPort: 443
               OriginProtocolPolicy: https-only
           - Id: Media
-            DomainName: !Sub ${MediaBucket}.s3-website-${AWS::Region}.amazonaws.com
-            CustomOriginConfig:
-              OriginProtocolPolicy: http-only # S3 "web" server only supports plain HTTP
+            DomainName: !GetAtt MediaBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: "" # Specify this to restrict direct access to the S3 bucket
             ConnectionAttempts: 2
             ConnectionTimeout: 2
           - Id: FrontendApplication
@@ -689,6 +679,9 @@ Resources:
             ConnectionAttempts: 1
             ConnectionTimeout: 2
         CacheBehaviors:
+          #
+          # Let api/* requests go to the API gateway
+          #
           - PathPattern: !Sub ${APIStageName}/*
             TargetOriginId: BackendAPI
             AllowedMethods:
@@ -711,6 +704,9 @@ Resources:
             DefaultTTL: 0
             Compress: true
             ViewerProtocolPolicy: redirect-to-https
+          #
+          # Let media/* requests go to the media bucket
+          #
           - PathPattern: media/*
             TargetOriginId: Media
             AllowedMethods:
@@ -723,6 +719,9 @@ Resources:
             Compress: true
             ViewerProtocolPolicy: redirect-to-https
         DefaultCacheBehavior:
+          #
+          # Let default requests go to the website bucket
+          #
           TargetOriginId: FrontendApplication
           AllowedMethods:
             - GET

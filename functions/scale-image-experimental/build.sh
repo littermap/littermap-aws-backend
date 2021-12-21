@@ -4,7 +4,7 @@
 # This build script is intended to be run inside the prepared build environment inside the Docker container
 #
 
-package_name=get-scaled-image
+package_name=scale-image-experimental
 build_type=$1
 
 if [ -z $build_type ]; then

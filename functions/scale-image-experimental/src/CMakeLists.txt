@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 set(CMAKE_CXX_STANDARD 11)
-project(get-scaled-image LANGUAGES CXX) # <-- package name specified here
+project(scale-image-experimental LANGUAGES CXX) # <-- package name specified here
 
 find_package(aws-lambda-runtime)
 find_package(AWSSDK COMPONENTS s3)

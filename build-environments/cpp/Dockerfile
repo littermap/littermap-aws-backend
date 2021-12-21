@@ -10,11 +10,7 @@
 FROM alpine:3.14.3
 
 #
-# Install the AWS SDK and lambda runtime library into /opt/aws (pull directly from github)
-#
-
-WORKDIR /download
-
+# Install the AWS SDK and lambda runtime library into /opt/aws (pull directly from git)
 #
 # Packages:
 #
@@ -25,6 +21,9 @@ WORKDIR /download
 #
 #      See: https://github.com/awslabs/aws-lambda-cpp/issues/124
 #
+
+WORKDIR /download
+
 RUN apk add --progress --no-cache cmake make g++ git bash zip curl-dev zlib-dev libexecinfo-dev
 
 RUN \
@@ -58,18 +57,30 @@ RUN \
 # Install libvips and its required and hand-picked optional dependencies
 #
 
-RUN apk add --progress --no-cache glib-dev expat-dev libpng-dev librsvg-dev libwebp-dev
+RUN apk add --progress --no-cache glib-dev expat-dev libpng-dev libwebp-dev
 
 RUN \
   wget https://github.com/libvips/libvips/releases/download/v8.12.0/vips-8.12.0.tar.gz -O vips.tar.gz && \
   tar xvzf vips.tar.gz && rm -v vips.tar.gz && \
   cd vips-* && \
-  ./configure && make && make install
+  ./configure \
+    --without-rsvg \
+    --without-openslide \
+    --without-nsgit \
+    --without-ppm \
+    --without-analyze \
+    --without-radiance \
+    --without-pangocairo \
+    --without-fontconfig \
+    --without-libexif && \
+  make && make install && \
+  cd ../ && \
+  rm -rf vips
 
 RUN rm -rf /download
 
 #
-# Ready for building the lambda function and packaging for release
+# Ready for building the lambda function and packaging it for release
 #
 
 WORKDIR /opt/aws/lambda

@@ -41,6 +41,10 @@ Cloud native back-end for the [Litter Map](https://github.com/earthstewards/litt
 
 First install the [requirements](#Requirements).
 
+There are multiple ways to install a version of sam-cli, but if in doubt try installing with `pip` as a user package:
+
+- `pip install --user aws-sam-cli`
+
 ### Configuring AWS
 
 If you don't have an AWS account, [create one](https://aws.amazon.com/resources/create-account/).
@@ -115,11 +119,13 @@ To provide a native binary lambda deployment package, there are two options:
 
 #### Provide a built package
 
-There is currently one native lambda that needs to be deployed:
+There is currently one native lambda:
 
-- `get-scaled-image` (it is currently experimental)
+- `scale-image-experimental` (it is currently partially implemented)
 
-If you have a built package ready, just place `get-scaled-image.zip` into `functions/get-scaled-image/build/`. The directory may need to be created.
+The code for including it in the deployment is currently commented out, so this section applies only if you are going to be intentionally testing it.
+
+If you have a [built package](https://github.com/earthstewards/littermap-aws-backend/discussions/#4) ready, just place `scale-image-experimental.zip` into `functions/scale-image-experimental/build/`. The `build/` directory may need to be created.
 
 #### Build it
 
@@ -127,7 +133,7 @@ Native lambdas can be built inside a specialized [container](https://docs.docker
 
 Make sure you've got Docker installed.
 
-The build environment can be built for one of two 64-bit CPU architectures: `x86` or `arm`. Since all deployed lambda functions are currently set to require the newer ARM CPU (due to their [cost effectiveness](https://aws.amazon.com/blogs/aws/aws-lambda-functions-powered-by-aws-graviton2-processor-run-your-functions-on-arm-and-get-up-to-34-better-price-performance/)), to build a package that will run when deployed, the appropriate environment must be built.
+The build environment can be built for one of two 64-bit CPU architectures: `x86` or `arm`. Since all deployed lambda functions are currently set to require the newer ARM CPU (due to its [cost effectiveness](https://aws.amazon.com/blogs/aws/aws-lambda-functions-powered-by-aws-graviton2-processor-run-your-functions-on-arm-and-get-up-to-34-better-price-performance/)), to build a package that will run when deployed, it must be built and packaged together with its native linked libraries in an appropriate environment.
 
 Currently, the only available build environment [prototype](https://conetix.com.au/blog/what-is-a-dockerfile/) is for building lambdas from C++ source code using the official [AWS C++ SDK](https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/getting-started.html) and [AWS C++ Runtime API](https://github.com/awslabs/aws-lambda-cpp) libraries. It also includes the [vips](https://github.com/libvips/libvips) high performance image processing library. Other build environments can be added for lambdas that are based on other technology stacks.
 
@@ -146,11 +152,11 @@ Once you have one or both of these environments built, they should be visible wi
 
 - `docker images`
 
-Now, to build `get-scaled-image` for the `arm` architecture:
+Now, to build `scale-image-experimental` for the `arm` architecture:
 
-- `./manage build-cpp-function get-scaled-image arm`
+- `./manage build-cpp-function scale-image-experimental arm`
 
-If the build process completes successfully, it will produce a deployment-ready zip package at `functions/get-scaled-image/build/get-scaled-image.zip`.
+If the build process completes successfully, it will produce a deployment-ready zip package at `functions/scale-image-experimental/build/scale-image-experimental.zip`.
 
 ### Deploying the front-end
 
@@ -432,6 +438,7 @@ Auxiliary database used for event logging
 - [Sharp edges in serverless](http://blog.ryangreen.ca/2019/06/18/in-the-cloud-beware-of-sharp-edges-for-there-are-many/)
 - [In-depth API gateway configuration](https://nickolaskraus.org/articles/creating-an-amazon-api-gateway-with-a-mock-integration-using-cloudformation/)
 - [Understanding the basics of Cross Origin Resource Sharing policies](https://javascript.plainenglish.io/understanding-the-basics-to-fetch-credentials-863b25968ed5)
+- [How the AWS Lambda service works inside behind the scenes](https://www.bschaatsbergen.com/behind-the-scenes-lambda)
 - [S3 bucket restrictions and limitations](https://docs.aws.amazon.com/AmazonS3/latest/userguide/BucketRestrictions.html)
 - [Safer bash scripts with failure mode flags](https://vaneyckt.io/posts/safer_bash_scripts_with_set_euxo_pipefail/)
 - [Docker containers and the ability to run images built for foreign architectures](https://dbhi.github.io/qus/)
@@ -444,6 +451,7 @@ Auxiliary database used for event logging
 
 ### Security
 
+- [General security design principles](https://dwheeler.com/secure-programs/Secure-Programs-HOWTO/follow-good-principles.html)
 - [Protecting your users from cross-site scripting exploits](https://en.wikipedia.org/wiki/Cross-site_scripting#Exploit_examples)
 - [Protecting your users from cross-site request forgery](https://en.wikipedia.org/wiki/Cross-site_request_forgery#Example)
 - [Using an unguessable state parameter to protect against hijacking of the authentication process](https://security.stackexchange.com/questions/203022/oauth-2-state-token-and-protect-csrf)

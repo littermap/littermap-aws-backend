@@ -298,6 +298,7 @@ case $1 in
     echo "Building functions/$2/src/ inside the Docker container"
     echo
 
+    # The docker container finds the source in /mnt/src and produces the package in /mnt/out
     docker run \
       --network host \
       -it --rm \
