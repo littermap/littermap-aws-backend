@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 
+if [ -e samconfig.toml ]; then
+  echo The file samconfig.toml exists
+  echo
+  echo If you actually mean to initialize the configuration for this deployment, move or delete the existing file
+
+  exit 1
+fi
+
 profiles=$(cat ~/.aws/credentials | grep -Po '(?<=^\[).+(?=\]$)')
 
 if [ ${#profiles} -eq 0 ]; then
