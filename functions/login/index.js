@@ -8,9 +8,9 @@
 const { dynamo } = require('/opt/nodejs/lib/dynamo')
 const { ensureSession } = require('/opt/nodejs/lib/middleware/session')
 const { logEvent } = require('/opt/nodejs/lib/interface/eventlog')
-const { done } = require('/opt/nodejs/lib/endpoint')
 const { urlBase } = require('/opt/nodejs/lib/net')
 const { md5, base64 } = require('/opt/nodejs/lib/crypto')
+const { done } = require('/opt/nodejs/lib/endpoint')
 
 const sessionsTable = process.env.SESSIONS_TABLE
 const googleClientId = process.env.CLIENTID_GOOGLE

@@ -488,6 +488,7 @@ Auxiliary database used for event logging
 - [Your DynamoDB tables](https://console.aws.amazon.com/dynamodb/home#tables)
 - [Your RDS database instances](https://console.aws.amazon.com/rds/home#databases:)
 - [CloudWatch logs](https://console.aws.amazon.com/cloudwatch/home#logsV2:log-groups)
+- [AWS service health dashboard](https://status.aws.amazon.com/)
 - [Identity and Access Management](https://console.aws.amazon.com/iam/)
 - [Configure your Google API credentials](https://console.cloud.google.com/apis/credentials)
 - [Manage apps that can access your Google account](https://myaccount.google.com/permissions)

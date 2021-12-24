@@ -9,10 +9,11 @@
 //
 
 const { getUserInfo } = require('/opt/nodejs/lib/interface/users')
-const { done } = require('/opt/nodejs/lib/endpoint')
 const { check_isNumeric, check_isPositiveInteger } = require('/opt/nodejs/lib/validation')
 const { md5 } = require('/opt/nodejs/lib/crypto')
+const { ageComment } = require('/opt/nodejs/lib/time')
 const { pgInit } = require('/opt/nodejs/lib/postgres')
+const { done } = require('/opt/nodejs/lib/endpoint')
 
 exports.handler = async function(event, context) {
   let state = {}, query
@@ -43,7 +44,10 @@ exports.handler = async function(event, context) {
             state.res = { message: "Not found" }
           } else {
             state.res = {
-              location: await resolveAuthorInfo(normalizeLocation(location))
+              location:
+                await fetchAuthorDetails(
+                  normalizeLocation(location)
+                )
             }
           }
         }
@@ -73,7 +77,9 @@ exports.handler = async function(event, context) {
               ST_DWithin(geo, ${pg.types.point({lat, lon})}, ${r})
           `
 
-          locations = locations.map(normalizeLocation)
+          locations = locations.map(
+            loc => normalizeLocation(loc)
+          )
 
           //
           // TODO: Resolve author information
@@ -121,6 +127,29 @@ function normalizeLocation(location) {
   if (location.created_by === "NULL")
     location.created_by = null
 
+  // Add age comment alongside the creation timestamp
+  location.created_at = {
+    timestamp: location.created_at,
+    comment: ageComment(location.created_at)
+  }
+
+  return location
+}
+
+async function fetchAuthorDetails(location) {
+  if (location.created_by) {
+    let result = await getUserInfo(location.created_by)
+
+    if (!result.error) {
+      location.created_by = {
+        name: result.name,
+        avatar: result.avatar
+      }
+    } else {
+      location.created_by = "error"
+    }
+  }
+
   return location
 }
 
@@ -155,21 +184,4 @@ function locationAsGeoJSONFeature(location) {
   feature.type = "Feature"
 
   return feature
-}
-
-async function resolveAuthorInfo(location) {
-  if (location.created_by) {
-    let result = await getUserInfo(location.created_by)
-
-    if (!result.error) {
-      location.created_by = {
-        name: result.name,
-        avatar: result.avatar
-      }
-    } else {
-      location.created_by = "error"
-    }
-  }
-
-  return location
 }
