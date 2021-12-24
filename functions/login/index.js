@@ -5,10 +5,9 @@
 // - Logout
 //
 
-const dynamo = new (require('aws-sdk/clients/dynamodb').DocumentClient)()
-
+const { dynamo } = require('/opt/nodejs/lib/dynamo')
 const { ensureSession } = require('/opt/nodejs/lib/middleware/session')
-const { logEvent } = require('/opt/nodejs/lib/eventlog')
+const { logEvent } = require('/opt/nodejs/lib/interface/eventlog')
 const { done } = require('/opt/nodejs/lib/endpoint')
 const { urlBase } = require('/opt/nodejs/lib/net')
 const { md5, base64 } = require('/opt/nodejs/lib/crypto')

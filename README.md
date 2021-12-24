@@ -397,6 +397,7 @@ Auxiliary database used for event logging
 - [Best practices for designing DynamoDB paritition keys](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-partition-key-design.html)
 - [Choosing the right DynamoDB partition key](https://aws.amazon.com/blogs/database/choosing-the-right-dynamodb-partition-key/)
 - [Best practices for designing and architecting with DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/best-practices.html)
+- [Creating a single-table design with DynamoDB](https://aws.amazon.com/blogs/compute/creating-a-single-table-design-with-amazon-dynamodb/)
 - [Letting items expire by setting the TTL attribute](https://aws.amazon.com/premiumsupport/knowledge-center/ttl-dynamodb/)
 - [Formatting an item's TTL attribute](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/time-to-live-ttl-before-you-start.html#time-to-live-ttl-before-you-start-formatting)
 - [Hands on examples with DynamoDB](https://cloudaffaire.com/primary-key-in-dynamodb/)
@@ -476,6 +477,7 @@ Auxiliary database used for event logging
 - [bash](https://devhints.io/bash)
 - [PostgreSQL](https://www.postgresqltutorial.com/postgresql-cheat-sheet/)
 - [PostGIS](http://www.postgis.us/downloads/postgis21_cheatsheet.pdf) [pdf]
+- [aws cli](https://www.bluematador.com/learn/aws-cli-cheatsheet)
 
 ## Quick links
 

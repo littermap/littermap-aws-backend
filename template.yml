@@ -143,7 +143,7 @@ Resources:
     Properties:
       FunctionName: get-location
       Description: Retrieve a location by its id
-      Role: !GetAtt DBAccessFunctionRole.Arn
+      Role: !GetAtt GetLocationFunctionRole.Arn
       Layers:
         - !Ref CommonLib
         - !Ref PostgresLib
@@ -155,6 +155,7 @@ Resources:
           PGUSER: reader
           PGPASSWORD: !Ref DBReaderPassword
           DB_GEOMETRY_TYPE_OID: !Ref DBGeometryTypeOID
+          USERS_TABLE: !Ref UsersTable
       Events:
         GetLocationById:
           Type: HttpApi
@@ -276,7 +277,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: db-init
-      Description: Administrative lambda that initilizes the littermap-db database
+      Description: Administrative lambda that initilizes the main database
       Role: !GetAtt DBAccessFunctionRole.Arn
       Timeout: 10
       Layers:
@@ -329,6 +330,21 @@ Resources:
               - sts:AssumeRole
 
   AddLocationFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+               - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+  GetLocationFunctionRole:
     Type: AWS::IAM::Role
     Properties:
       ManagedPolicyArns:
@@ -454,6 +470,7 @@ Resources:
       Roles:
         - Ref: DBAccessFunctionRole
         - Ref: AddLocationFunctionRole
+        - Ref: GetLocationFunctionRole
 
   AllowUsersAccessPolicy:
     Type: AWS::IAM::Policy
@@ -471,6 +488,20 @@ Resources:
       Roles:
         - Ref: InfoFunctionRole
         - Ref: AuthFunctionRole
+
+  AllowUsersReadAccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: allow-users-read-access
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+            - dynamodb:GetItem
+            Resource: !GetAtt UsersTable.Arn
+            Effect: Allow
+      Roles:
+        - Ref: GetLocationFunctionRole
 
   AllowSessionsAccessPolicy:
     Type: AWS::IAM::Policy
@@ -578,7 +609,7 @@ Resources:
         - AttributeName: id
           AttributeType: S
       KeySchema:
-        - AttributeName: id
+        - AttributeName: id # Keyed by user id
           KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: !Ref UsersTableReadCapacity
@@ -593,7 +624,7 @@ Resources:
         - AttributeName: id
           AttributeType: S
       KeySchema:
-        - AttributeName: id
+        - AttributeName: id # Keyed by user id
           KeyType: HASH
       TimeToLiveSpecification:
         AttributeName: expires_at
@@ -613,7 +644,7 @@ Resources:
         - AttributeName: time_key
           AttributeType: S
       KeySchema:
-        - AttributeName: date_key
+        - AttributeName: date_key # Keyed by date followed by time
           KeyType: HASH
         - AttributeName: time_key
           KeyType: RANGE
@@ -627,6 +658,7 @@ Resources:
       AccessControl: Private
       LifecycleConfiguration:
         Rules:
+          # Schedule regular removal of unverified uploads
           - Id: DeleteUnverified
             ExpirationInDays: 1
             Status: Enabled

@@ -8,6 +8,7 @@
 // /radius?lat=40.77&lon=-73.97&r=0.8?format=geojson
 //
 
+const { getUserInfo } = require('/opt/nodejs/lib/interface/users')
 const { done } = require('/opt/nodejs/lib/endpoint')
 const { check_isNumeric, check_isPositiveInteger } = require('/opt/nodejs/lib/validation')
 const { md5 } = require('/opt/nodejs/lib/crypto')
@@ -41,7 +42,9 @@ exports.handler = async function(event, context) {
             state.status = 404
             state.res = { message: "Not found" }
           } else {
-            state.res = { location: normalizeLocation(location) }
+            state.res = {
+              location: await resolveAuthorInfo(normalizeLocation(location))
+            }
           }
         }
       }
@@ -71,6 +74,12 @@ exports.handler = async function(event, context) {
           `
 
           locations = locations.map(normalizeLocation)
+
+          //
+          // TODO: Resolve author information
+          //
+          // This is properly done using a batch request
+          //
 
           if (format === "geojson") {
             //
@@ -146,4 +155,21 @@ function locationAsGeoJSONFeature(location) {
   feature.type = "Feature"
 
   return feature
+}
+
+async function resolveAuthorInfo(location) {
+  if (location.created_by) {
+    let result = await getUserInfo(location.created_by)
+
+    if (!result.error) {
+      location.created_by = {
+        name: result.name,
+        avatar: result.avatar
+      }
+    } else {
+      location.created_by = "error"
+    }
+  }
+
+  return location
 }

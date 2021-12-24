@@ -11,7 +11,7 @@
 // The timestamp is also recorded as a field (in UTC) for human convenience.
 //
 
-const dynamo = new (require('aws-sdk/clients/dynamodb').DocumentClient)()
+const { dynamo } = require('/opt/nodejs/lib/dynamo')
 
 exports.handler = async function(event, context) {
   let status, res

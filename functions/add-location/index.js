@@ -22,7 +22,7 @@ const s3 = new (require('aws-sdk/clients/s3'))()
 const { ensureSession } = require('/opt/nodejs/lib/middleware/session')
 const { done } = require('/opt/nodejs/lib/endpoint')
 const { check_isArray, check_isHex } = require('/opt/nodejs/lib/validation')
-const { logEvent } = require('/opt/nodejs/lib/eventlog')
+const { logEvent } = require('/opt/nodejs/lib/interface/eventlog')
 const { pgInit } = require('/opt/nodejs/lib/postgres')
 
 const mediaBucket = process.env.MEDIA_BUCKET

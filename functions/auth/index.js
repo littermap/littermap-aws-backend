@@ -8,10 +8,9 @@
 // - Associates this user with the current browser session (this represents logging in)
 //
 
-const dynamo = new (require('aws-sdk/clients/dynamodb').DocumentClient)()
-
+const { dynamo } = require('/opt/nodejs/lib/dynamo')
 const { ensureSession } = require('/opt/nodejs/lib/middleware/session')
-const { logEvent } = require('/opt/nodejs/lib/eventlog')
+const { logEvent } = require('/opt/nodejs/lib/interface/eventlog')
 const { done } = require('/opt/nodejs/lib/endpoint')
 const v = require('/opt/nodejs/lib/validation')
 const { httpsGet, httpsPost, queryString, urlBase } = require('/opt/nodejs/lib/net')
