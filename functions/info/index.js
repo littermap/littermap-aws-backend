@@ -25,6 +25,8 @@ exports.handler = ensureSession( async (event, context) => {
             profile: {
               'name': result.name,
               'avatar': result.avatar,
+              'email': result.email,
+              'id': result.id,
               'member_since': result.created_at
             }
           }
