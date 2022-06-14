@@ -196,7 +196,7 @@ exports.handler = ensureSession( async (event, context) => {
         Key: {
           'id': userinfo.id
         }
-      }).promise()
+      })
 
       userRecord = result.Item
     } catch(e) {
@@ -222,7 +222,7 @@ exports.handler = ensureSession( async (event, context) => {
             'email': userinfo.email,
             'avatar': userinfo.avatar
           }
-        }).promise()
+        })
 
         await logEvent({
           type: "account",
@@ -255,7 +255,7 @@ exports.handler = ensureSession( async (event, context) => {
             ':email': userinfo.email,
             ':avatar': userinfo.avatar
           }
-        }).promise()
+        })
       } catch(e) {
         state.status = 500
         state.res = error("Failed to update user information", e.message)
@@ -285,7 +285,7 @@ exports.handler = ensureSession( async (event, context) => {
         ExpressionAttributeValues: {
           ':user': event.session.who
         }
-      }).promise()
+      })
 
       await logEvent({
         type: "session",

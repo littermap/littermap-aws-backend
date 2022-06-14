@@ -90,11 +90,11 @@ Perform first-time initialization on the littermap database:
 
 This will turn on PostGIS and create tables and access roles.
 
-Take note of the `geometry_type_oid` value in the output. It is necessary to provide it, so redeploy the stack with this value provided now:
+Take note of the `geometry_type_oid` value in the output. It is necessary to provide it after every database initialization, so redeploy the stack and manually specify the `DBGeometryTypeOID` parameter now:
 
 - `sam deploy -g`
 
-If you forget the oid, you can get it again by running:
+If you forget the oid, you can retrieve it by running:
 
 - `./manage rds-db-run "SELECT oid FROM pg_type WHERE typname='geometry';" reader`
 
@@ -181,7 +181,7 @@ To deploy a specific branch or commit:
 - `./manage www-update <branch-or-commit>`
 - `./manage www-publish`
 
-## Interacting manually with the service
+## Manual interaction with the service
 
 In the following instructions, replace `$BASE` with the API URL that looks something like:
 
@@ -273,7 +273,7 @@ To take this service down, run:
 
 - `./manage stack-delete` ([what this does](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-delete.html))
 
-If that doesn't go smoothly, troubleshoot the issue or delete the stack in the [CloudFormation dashboard](https://console.aws.amazon.com/cloudformation/). Be aware that deleting or changing resources manually will result in [stack drift](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-drift.html?icmpid=docs_cfn_console) and can [create difficulties](https://forums.aws.amazon.com/message.jspa?messageID=510944#512973) that need to be resolved in order to manage the stack.
+If that doesn't go smoothly, troubleshoot the issue or delete the stack in the [CloudFormation dashboard](https://console.aws.amazon.com/cloudformation/).
 
 ## Development
 
@@ -304,6 +304,8 @@ To learn more about the deployment process and options run:
 
 - `sam build -h`
 - `sam deploy -h`
+
+Be aware that deleting or changing the properties of individual running resources manually (e.g. in the AWS dashboard) will result in [stack drift](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-drift.html?icmpid=docs_cfn_console) and can [create difficulties](https://forums.aws.amazon.com/message.jspa?messageID=510944#512973) that must be resolved in order to manage the stack wtih `sam`.
 
 ### tl;dr
 
@@ -363,7 +365,7 @@ To learn more about the deployment process and options run:
 
 ### [Amazon RDS](https://aws.amazon.com/rds/) database
 
-Used as the main database to store global locations
+Database used to store locations
 
 > Amazon RDS is a scalable relational database service that is API-compatible with PostgreSQL.
 
@@ -386,18 +388,20 @@ Used as the main database to store global locations
 
 ### [DynamoDB](https://aws.amazon.com/dynamodb/) database
 
-Auxiliary database used for event logging
+Database engine used to store user profiles, sessions, and event logs
 
-> DynamoDB is a fast and flexible [NoSQL](https://www.mongodb.com/nosql-explained) database that is simple by design but difficult to master. If used correctly, it will scale to terabytes and beyond with no performance degradation.
+> DynamoDB is a fast and flexible [NoSQL](https://www.mongodb.com/nosql-explained) database that is simple by design but challenging to master. If used correctly, it will scale to terabytes and beyond with no performance degradation.
 
 - [A look at DynamoDB](https://cloudonaut.io/a-look-at-dynamodb/)
+- [Dynamo: Amazon’s Highly Available Key-value Store](https://www.allthingsdistributed.com/files/amazon-dynamo-sosp2007.pdf) [pdf]
 - [The basics of DynamoDB](https://www.freecodecamp.org/news/ultimate-dynamodb-2020-cheatsheet/)
 - [Data modeling with document databases](https://db-engines.com/en/blog_post/51)
 - [Querying on multiple attributes in Amazon DynamoDB](https://aws.amazon.com/blogs/database/querying-on-multiple-attributes-in-amazon-dynamodb/)
 - [Best practices for designing DynamoDB paritition keys](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-partition-key-design.html)
 - [Choosing the right DynamoDB partition key](https://aws.amazon.com/blogs/database/choosing-the-right-dynamodb-partition-key/)
 - [Best practices for designing and architecting with DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/best-practices.html)
-- [Creating a single-table design with DynamoDB](https://aws.amazon.com/blogs/compute/creating-a-single-table-design-with-amazon-dynamodb/)
+- [Single-table design pattern with DynamoDB](https://medium.com/till-engineering/single-table-design-aws-dynamodb-cffd230a371f)
+- [The What, Why, and When of Single-Table Design with DynamoDB](https://www.alexdebrie.com/posts/dynamodb-single-table/)
 - [Letting items expire by setting the TTL attribute](https://aws.amazon.com/premiumsupport/knowledge-center/ttl-dynamodb/)
 - [Formatting an item's TTL attribute](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/time-to-live-ttl-before-you-start.html#time-to-live-ttl-before-you-start-formatting)
 - [Hands on examples with DynamoDB](https://cloudaffaire.com/primary-key-in-dynamodb/)

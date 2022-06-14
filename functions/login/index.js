@@ -77,7 +77,7 @@ exports.handler = ensureSession( async (event, context) => {
               'id': event.session.id
             },
             UpdateExpression: 'REMOVE who'
-          }).promise()
+          })
 
           await logEvent({
             type: "session",

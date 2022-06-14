@@ -1,4 +1,5 @@
 {
   "esversion": 11,
-  "asi": true
+  "asi": true,
+  "loopfunc": true
 }

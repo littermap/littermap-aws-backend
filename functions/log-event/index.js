@@ -56,7 +56,7 @@ exports.handler = async function(event, context) {
             'timestamp': now.toUTCString(),
             'event': input
           }
-        }).promise()
+        })
       } catch(e) {
         status = 500
         res = error(e.message)

@@ -8,7 +8,7 @@
 // /radius?lat=40.77&lon=-73.97&r=0.8?format=geojson
 //
 
-const { getUserInfo } = require('/opt/nodejs/lib/interface/users')
+const { getUserInfo, getUserInfoBatch } = require('/opt/nodejs/lib/interface/users')
 const { check_isNumeric, check_isPositiveInteger } = require('/opt/nodejs/lib/validation')
 const { md5 } = require('/opt/nodejs/lib/crypto')
 const { ageComment } = require('/opt/nodejs/lib/time')
@@ -78,15 +78,37 @@ exports.handler = async function(event, context) {
               ST_DWithin(geo, ${pg.types.point({lat, lon})}, ${r})
           `
 
-          locations = locations.map(
-            loc => normalizeLocation(loc)
-          )
+          for (let i = 0; i < locations.length; i++ )
+            normalizeLocation(locations[i])
 
-          //
-          // TODO: Resolve author information
-          //
-          // This is properly done using a batch request
-          //
+          let authorIds = []
+
+          // Create a list of unique author ids from the set of locations
+          for (let i = 0; i < locations.length; i++ ) {
+            let author = locations[i].created_by
+
+            if (authorIds.indexOf(author) === -1)
+              authorIds.push(author)
+          }
+
+          // Fetch user details for each unique location author (in a batch request)
+          let authorsResults = await getUserInfoBatch(authorIds)
+
+          if (Array.isArray(authorsResults)) {
+            // Replace author reference with full user details
+            for (let i = 0; i < locations.length; i++) {
+              let loc = locations[i]
+
+              // Returned results are not always in the same order as the request
+              loc.created_by = authorsResults.find(
+                (author) => author.id === loc.created_by
+              )
+            }
+          } else {
+            // Error fetching, make it clear that author information is missing
+            for (let i = 0; i < locations.length; i++)
+              locations[i].created_by = null
+          }
 
           if (format === "geojson") {
             //
@@ -133,8 +155,6 @@ function normalizeLocation(location) {
     timestamp: location.created_at,
     comment: ageComment(location.created_at)
   }
-
-  return location
 }
 
 async function fetchAuthorDetails(location) {

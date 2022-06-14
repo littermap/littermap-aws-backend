@@ -388,7 +388,9 @@ case $1 in
     $0 function-run db-init
 
     echo
-    echo "Don\'t forget to run \`sam deploy -g\` and set the value of the geometry type OID"
+    echo !IMPORTANT! - The value of geometry_type_oid changes on every database init
+    echo
+    echo "Don't forget to run \`sam deploy -g\` and manually specify the DBGeometryTypeOID parameter"
     ;;
 
   "rds-db-run" ) # args: query, [user]

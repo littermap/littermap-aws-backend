@@ -498,6 +498,7 @@ Resources:
         Statement:
           - Action:
             - dynamodb:GetItem
+            - dynamodb:BatchGetItem
             Resource: !GetAtt UsersTable.Arn
             Effect: Allow
       Roles:
