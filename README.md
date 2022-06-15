@@ -22,7 +22,9 @@ Cloud native back-end for the [Litter Map](https://github.com/earthstewards/litt
 
 ## Software involved
 
-- Lambda code uses [node.js](https://nodejs.org/about/) with [postgres](https://github.com/porsager/postgres/) library for database communication.
+- Lambda code is written in [node.js](https://nodejs.org/about/) and uses:
+  - [postgres](https://github.com/porsager/postgres/) library for communication with the PostGIS database
+  - [dynamo-plus](https://github.com/Sleavely/dynamo-plus) wrapper for the [AWS DynamoDB DocumentClient](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/AccessAnalyzer.html) to access the DynamoDB tables
 
 ## Useful utilities
 
