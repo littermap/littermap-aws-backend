@@ -12,6 +12,7 @@
 //
 
 const { dynamo } = require('/opt/nodejs/lib/dynamo')
+const { error } = require('/opt/nodejs/lib/error')
 
 exports.handler = async function(event, context) {
   let status, res
@@ -33,14 +34,14 @@ exports.handler = async function(event, context) {
       input = JSON.parse(event.body)
     } catch(e) {
       status = 422
-      res = { error: "Post data must be valid JSON" }
+      res = error("Post data must be valid JSON")
     }
   }
 
   if (!status) {
     if (typeof input.message !== "string") {
       status = 422
-      res = { error: '"message" is required' }
+      res = error('"message" is required')
     } else {
       let now = new Date(), today = new Date(now)
 
@@ -58,7 +59,7 @@ exports.handler = async function(event, context) {
         }).promise()
       } catch(e) {
         status = 500
-        res = { error: e.message }
+        res = error(e.message)
       }
     }
   }

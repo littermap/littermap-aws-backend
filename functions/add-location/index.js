@@ -23,6 +23,7 @@ const { ensureSession } = require('/opt/nodejs/lib/middleware/session')
 const { check_isArray, check_isHex } = require('/opt/nodejs/lib/validation')
 const { logEvent } = require('/opt/nodejs/lib/interface/eventlog')
 const { pgInit } = require('/opt/nodejs/lib/postgres')
+const { error, errorStr } = require('/opt/nodejs/lib/error')
 const { done } = require('/opt/nodejs/lib/endpoint')
 
 const mediaBucket = process.env.MEDIA_BUCKET
@@ -37,7 +38,7 @@ exports.handler = ensureSession( async (event, context) => {
     ({ lat, lon, description, level, images } = JSON.parse(event.body))
   } catch(e) {
     state.status = 422
-    state.res = { error: "Post data must be valid JSON" }
+    state.res = error("Post data must be valid JSON")
   }
 
   if (!state.status) {
@@ -46,13 +47,13 @@ exports.handler = ensureSession( async (event, context) => {
     //
     if (typeof lat !== 'number' || typeof lon !== 'number' ) {
       state.status = 422
-      state.res = { error: "{lat, lon} must be numbers" }
+      state.res = error("{lat, lon} must be numbers")
     } else if (Math.abs(lat) > 90 || Math.abs(lon) > 180) {
       state.status = 422
-      state.res = { error: "{lat, lon} must be realistic" }
+      state.res = error("{lat, lon} must be realistic")
     } else if (typeof level !== 'number' || !Number.isInteger(level) || level < 1 || level > 100) {
       state.status = 422
-      state.res = { error: "'level' is expected to be an integer in the range [1..100]" }
+      state.res = error("'level' is expected to be an integer in the range [1..100]")
     } else {
       // Image keys are random 12-byte hex values
       check_isArray(state, 'images', images, "24 digit hex", check_isHex(24))
@@ -73,7 +74,7 @@ exports.handler = ensureSession( async (event, context) => {
         author = 'NULL'
       else {
         state.status = 403
-        state.res = { error: "Please sign in to submit a location" }
+        state.res = error("Please sign in to submit a location")
       }
     }
   }
@@ -112,7 +113,7 @@ exports.handler = ensureSession( async (event, context) => {
       state.res = { id: result.id }
     } catch(e) {
       state.status = 500
-      state.res = { error: "Failed to store location in the main database", reason: e.message }
+      state.res = error("Failed to store location in the main database", e.message)
     } finally {
       pg.end()
 
@@ -160,7 +161,7 @@ exports.handler = ensureSession( async (event, context) => {
               }
             } ).promise()
           } catch(e) {
-            errors.push(`Failed to mark image ${imageId} as verified: ${e.message}`)
+            errors.push(errorStr(`Failed to mark image ${imageId} as verified`, e.message))
           }
         }
       )

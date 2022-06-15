@@ -13,6 +13,7 @@ const { check_isNumeric, check_isPositiveInteger } = require('/opt/nodejs/lib/va
 const { md5 } = require('/opt/nodejs/lib/crypto')
 const { ageComment } = require('/opt/nodejs/lib/time')
 const { pgInit } = require('/opt/nodejs/lib/postgres')
+const { error } = require('/opt/nodejs/lib/error')
 const { done } = require('/opt/nodejs/lib/endpoint')
 
 exports.handler = async function(event, context) {
@@ -111,7 +112,7 @@ exports.handler = async function(event, context) {
       await query(pg)
     } catch(e) {
       state.status = 500
-      state.res = { error: "Failed to query locations database", reason: e.message }
+      state.res = error("Failed to retrieve location(s)", e.message)
     } finally {
       pg.end()
     }

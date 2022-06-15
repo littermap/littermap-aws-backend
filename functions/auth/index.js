@@ -14,6 +14,7 @@ const { logEvent } = require('/opt/nodejs/lib/interface/eventlog')
 const v = require('/opt/nodejs/lib/validation')
 const { httpsGet, httpsPost, queryString, urlBase } = require('/opt/nodejs/lib/net')
 const { md5, debase64 } = require('/opt/nodejs/lib/crypto')
+const { error } = require('/opt/nodejs/lib/error')
 const { done } = require('/opt/nodejs/lib/endpoint')
 
 const sessionsTable = process.env.SESSIONS_TABLE
@@ -65,7 +66,7 @@ exports.handler = ensureSession( async (event, context) => {
             //
             if (secret !== md5(event.session.id)) {
               state.status = 422
-              state.res = { error: "This sign-in authorization did not properly originate with the current session" }
+              state.res = error("This sign-in authorization did not properly originate with the current session")
             }
           } )
 
@@ -110,12 +111,12 @@ exports.handler = ensureSession( async (event, context) => {
 
               if (response.statusCode !== 200) {
                 state.status = 422
-                state.res = { error: "Google service refused to issue an access key (something went wrong)" }
+                state.res = error("Google service refused to issue an access key (something went wrong)")
               }
 
             } catch(e) {
               state.status = 500
-              state.res = { error: "Failed to query Google auth API endpoint to obtain access key", reason: e.message }
+              state.res = error("Failed to query Google auth API endpoint to obtain access key", e.message)
             }
           } )
 
@@ -138,11 +139,11 @@ exports.handler = ensureSession( async (event, context) => {
 
               if (response.statusCode !== 200) {
                 state.status = 422
-                state.res = { error: "Google API did not return user profile; HTTP code: " + res.statusCode }
+                state.res = error("Google API did not return user profile; HTTP code: " + res.statusCode)
               }
             } catch(e) {
               state.status = 500
-              state.res = { error: "Failed to query Google API to get user profile", reason: e.message }
+              state.res = error("Failed to query Google API to get user profile", e.message)
             }
           } )
 
@@ -169,7 +170,7 @@ exports.handler = ensureSession( async (event, context) => {
 
             } catch(e) {
               state.status = 422
-              state.res = { error: "User profile not received from Google API" }
+              state.res = error("User profile not received from Google API")
             }
           } )
 
@@ -177,7 +178,7 @@ exports.handler = ensureSession( async (event, context) => {
 
         default:
           state.status = 422
-          state.res = { error: "Unsupported auth service: " + service }
+          state.res = error("Unsupported auth service: " + service)
       }
 
       // end switch: method endpoint
@@ -200,7 +201,7 @@ exports.handler = ensureSession( async (event, context) => {
       userRecord = result.Item
     } catch(e) {
       state.status = 500
-      state.res = { error: "User record lookup failed", reason: e.message }
+      state.res = error("User record lookup failed", e.message)
     }
   } )
 
@@ -231,7 +232,7 @@ exports.handler = ensureSession( async (event, context) => {
         })
       } catch(e) {
         state.status = 500
-        state.res = { error: "Failed to create new user", reason: e.message }
+        state.res = error("Failed to create new user", e.message)
       }
     } )
   } else {
@@ -257,7 +258,7 @@ exports.handler = ensureSession( async (event, context) => {
         }).promise()
       } catch(e) {
         state.status = 500
-        state.res = { error: "Failed to update user information", reason: e.message }
+        state.res = error("Failed to update user information", e.message)
       }
     } )
   }
@@ -294,7 +295,7 @@ exports.handler = ensureSession( async (event, context) => {
       })
     } catch(e) {
       state.status = 500
-      state.res = { error: "Failed to associate user with current session", reason: e.message }
+      state.res = error("Failed to associate user with current session", e.message)
     }
   } )
 

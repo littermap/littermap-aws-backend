@@ -6,6 +6,8 @@
 
 const postgres = require('postgres')
 
+const { error } = require('/opt/nodejs/lib/error')
+
 exports.handler = async function(event, context) {
   let status, res
 
@@ -18,7 +20,7 @@ exports.handler = async function(event, context) {
 
   if (!query) {
     status = 400
-    res = { error: "bad query" }
+    res = error("Bad query")
   } else {
     const pg = postgres({ user, pass })
 
@@ -26,7 +28,7 @@ exports.handler = async function(event, context) {
       res = await pg.unsafe(query)
     } catch(e) {
       status = 500
-      res = { error: "Database error", reason: e.message }
+      res = error("Database error", e.message)
     } finally {
       pg.end()
     }

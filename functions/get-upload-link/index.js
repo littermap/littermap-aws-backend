@@ -6,6 +6,7 @@ const s3 = new (require('aws-sdk/clients/s3'))()
 
 const { ensureSession } = require('/opt/nodejs/lib/middleware/session')
 const { randomHex } = require('/opt/nodejs/lib/crypto')
+const { error } = require('/opt/nodejs/lib/error')
 const { done } = require('/opt/nodejs/lib/endpoint')
 
 const mediaBucket = process.env.MEDIA_BUCKET
@@ -19,7 +20,7 @@ exports.handler = ensureSession( async (event, context) => {
 
   if (!event.session.who) {
     state.status = 403
-    state.res = { error: "Must be logged in to receive an upload link" }
+    state.res = error("Must be logged in to receive an upload link")
   }
 
   if (!state.status) {
@@ -51,7 +52,7 @@ exports.handler = ensureSession( async (event, context) => {
       state.res = data
     } catch(e) {
       state.status = 500
-      state.res = { error: "Could not generate a signed upload link to the S3 bucket: " + e.message }
+      state.res = error("Could not generate a signed upload link to the S3 bucket", e.message)
     }
   }
 
