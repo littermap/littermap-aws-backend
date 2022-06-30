@@ -255,7 +255,6 @@ case $1 in
 
     # Build the Docker image that contains the build environment that is ready to build native Lambda functions
     docker $buildx build \
-      --network host \
       --progress plain \
       -t lambda-build-platform \
       --platform="$platform" \
@@ -307,7 +306,6 @@ case $1 in
 
     # The docker container finds the source in /mnt/src and produces the package in /mnt/out
     docker run \
-      --network host \
       -it --rm \
       -v "$(pwd)":/mnt/src \
       -v /tmp:/mnt/out \
