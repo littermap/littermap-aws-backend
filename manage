@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 #
-# Unauthorized use is prohibited.
+# Litter Map service management toolkit
 #
 
 # MacOS by default has BSD grep, and brew installs GNU grep as ggrep
@@ -12,20 +12,32 @@ else
 fi
 
 get_config() {
-  # Read configuration parameter
-  $grep -Po "(?<=$1 = \\\").+(?=\\\")" samconfig.toml
+  # Read stack configuration parameter
+  $grep -Po "(?<=$1 = \\\").*(?=\\\")" samconfig.toml
+}
+
+get_stack_param_from_config_escaped() {
+  params=$(get_config parameter_overrides)
+
+  # Find the specific parameter value (backslashes still escaped)
+  echo "$params" | $grep -Po "(?<=$1=\\\\\\\").*?(?=\\\\\\\")"
+}
+
+get_stack_param_from_config() {
+  # Unescape backslashes in the returned parameter value
+  get_stack_param_from_config_escaped "$1" | sed -e 's/\\\\/\\/g'
 }
 
 profile=$(get_config profile)
 
-if [[ $profile = "" ]]; then
+if [[ -z $profile ]]; then
   echo "Please set your AWS profile for this deployment in samconfig.toml"
   exit 1
 fi
 
 region=$(get_config region)
 
-if [[ $region = "" ]]; then
+if [[ -z $region ]]; then
   echo "Please configure your AWS deployment region by running: aws configure"
   exit 1
 fi
@@ -43,7 +55,7 @@ check_installed() {
 }
 
 if [ $nargs -eq 0 ]; then
-  echo "Available commands (look inside the script to get a better idea of what they do):"
+  echo "Available commands:"
   echo
 
   # Finds the commands by inspecting the code
@@ -59,20 +71,27 @@ if [ $nargs -eq 0 ]; then
   exit
 fi
 
+# Check if required number of arguments have been passed
 args () {
   if [[ $((nargs-1)) -lt $1 ]]; then
-    echo "This command requires $1 argument(s)"
+    if [[ $1 -eq 1 ]]; then
+      thing=argument
+    else
+      thing=arguments
+    fi
+
+    echo "This command requires $1 $thing"
     exit 1
   fi
 }
 
 case $1 in
   "list-functions" )
-    $aws lambda list-functions --output json
+    $aws lambda list-functions --output json | jq
     ;;
 
   "list-apis" )
-    $aws apigatewayv2 get-apis --output json
+    $aws apigatewayv2 get-apis --output json | jq
     ;;
 
   "list-api-ids" )
@@ -98,15 +117,15 @@ case $1 in
     ;;
 
   "list-rds-dbs" )
-    $aws rds describe-db-instances --output json
+    $aws rds describe-db-instances --output json | jq
     ;;
 
   "list-rds-db-ids" )
-    $0 list-rds-dbs | jq -r ".DBInstances[].DBInstanceIdentifier"
+    $0 list-rds-dbs | jq -r "try(.DBInstances[].DBInstanceIdentifier)"
     ;;
 
   "list-rds-db-endpoints" )
-    $0 list-rds-dbs | jq -r ".DBInstances[].Endpoint"
+    $0 list-rds-dbs | jq -r "try(.DBInstances[].Endpoint)"
     ;;
 
   "list-rds-postgres-versions" )
@@ -150,7 +169,7 @@ case $1 in
     status=$(jq -r '.statusCode // empty' < "$out")
 
     if [ -z "$status" ]; then
-      jq . < "$out"
+      jq < "$out"
     else
       echo "HTTP code: $status"
       echo
@@ -368,6 +387,8 @@ case $1 in
     echo "This may take a while"
     echo
     echo "Check the status with: $0 rds-db-status"
+    echo
+    echo "AWS will stop the database cluster for seven days, after which is will automatically be restarted."
     ;;
 
   "rds-db-wake" ) # args: [instance-id]
@@ -383,12 +404,15 @@ case $1 in
     ;;
 
   "rds-db-init" )
+    echo "WARNING: If you have an existing database, it will lose all stored information."
+    echo
+
     $0 function-run db-init
 
     echo
-    echo !IMPORTANT! - The value of geometry_type_oid changes on every database init
+    echo "!IMPORTANT! - The value of geometry_type_objectid changes on every database init"
     echo
-    echo "Don't forget to run \`sam deploy -g\` and manually specify the DBGeometryTypeOID parameter"
+    echo "Don't forget to run \`sam deploy -g\` and manually specify the DBGeometryTypeObjectID parameter"
     ;;
 
   "rds-db-run" ) # args: query, [user]
@@ -407,7 +431,7 @@ case $1 in
 
     echo "Invoking query function with parameters:"
     echo
-    echo "$json" | jq .
+    echo "$json" | jq
     echo
 
     $0 function-run db-run --payload "$json"
@@ -418,40 +442,81 @@ case $1 in
 
     echo "Invoking query function with parameters:"
     echo
-    jq . < "$2"
+    jq < "$2"
     echo
 
     $0 function-run db-run --payload "fileb://$2"
+    ;;
+
+  "rds-db-connect" ) # args: [role = admin | reader | writer]
+    check_installed psql https://www.postgresql.org/download/
+
+    # Database name (defined as a stack parameter)
+    dbname=$(get_stack_param_from_config DBName)
+
+    # Log in as admin by default
+    role=${2:-admin}
+
+    # The admin role has a configurable user name (so it can be different from just "admin")
+    if [ "$role" = admin ]; then
+      user=$(get_stack_param_from_config DBAdminUser)
+    else
+      user=$role
+    fi
+
+    # Get the password for the role from the stack configuration file
+    password=$(get_stack_param_from_config_escaped "DB${role^}Password")
+
+    if [ -z "$password" ]; then
+      echo "No password found for database user \"$user\" in samconfig.toml"
+      echo
+
+      userinfo="user=$user"
+    else
+      userinfo="user=$user password=$password"
+    fi
+
+    # Current assumption is that only one database endpoint will be returned
+    dbinfo=$($0 list-rds-db-endpoints)
+
+    # Retrieve database connection info and connect to the database with `psql`
+    psql "$(echo "$dbinfo" | jq -r "\"${userinfo//\\/\\\\} host=\" + .Address + \" port=\" + (.Port | tostring) + \" dbname=$dbname\"")"
     ;;
 
   "rds-db-get-security-group" )
     $aws rds describe-db-instances | jq -r ".DBInstances[].VpcSecurityGroups[].VpcSecurityGroupId"
     ;;
 
-  "rds-db-authorize-ingress" )
+  "rds-db-authorize-remote-access" )
     sg=$($0 rds-db-get-security-group)
+
+    # Authorize TCP access to the database from the public internet
     $aws ec2 authorize-security-group-ingress --group-id "$sg" --protocol tcp --port 5432 --cidr 0.0.0.0/0
     ;;
 
-  "rds-db-deauthorize-ingress" )
+  "rds-db-deauthorize-remote-access" )
     sg=$($0 rds-db-get-security-group)
+
+    # Deauthorize TCP access to the database from the public internet
     $aws ec2 revoke-security-group-ingress --group-id "$sg" --protocol tcp --port 5432 --cidr 0.0.0.0/0
     ;;
 
+  "dynamo-table-info" ) # args: table = sessions | users | event-log
+    args 1
+
+    $aws dynamodb describe-table --table-name "$2" | jq
+    ;;
+
   "s3-list-object-tags" ) # args: bucket-name object-key
-    $aws s3api get-object-tagging --bucket "$2" --key "$3"
+    args 2
+
+    $aws s3api get-object-tagging --bucket "$2" --key "$3" | jq
     ;;
 
   "s3-delete-all" ) # args: bucket-name
+    args 1
+
     $aws s3 rm "s3://$2" --recursive
-    ;;
-
-  "event-log-table-info" )
-    $aws dynamodb describe-table --table-name littermap-events
-    ;;
-
-  "event-log-table-schema" )
-    $0 event-log-table-info | jq .
     ;;
 
   "event-log" ) # args: [utc-date]
@@ -478,24 +543,24 @@ case $1 in
     cat "$out"
     ;;
 
-  "make-password" )
+  "gen-password" )
     $aws secretsmanager get-random-password --output=text
     ;;
 
-  "make-rds-db-password" )
+  "gen-rds-db-password" )
     # As per documented constraints for RDS passwords, replace quotes with |,
     # @ with # and / with \, and then also escape \ as \\
-    $0 make-password | tr '/@"'"'" '\\#||' | sed 's/\\/\\\\/g'
+    $0 gen-password | tr '/@"'"'" '\\#||' | sed 's/\\/\\\\/g'
     ;;
 
-  "check-service-quotas" )
+  "check-service-quotas" ) # args: [service]
     service=$2
 
     if [ -z "$service" ]; then
       # List services with service quotas
       $aws service-quotas list-services | jq -r ".Services[].ServiceCode"
     else
-      $aws service-quotas list-service-quotas --service-code "$service"
+      $aws service-quotas list-service-quotas --service-code "$service" | jq 
     fi
     ;;
 
@@ -503,6 +568,12 @@ case $1 in
     check_installed jshint https://jshint.com/install/
 
     find {functions,lib}/ -name '*.js' -print0 | xargs -0 jshint
+    ;;
+
+  "samconfig-get-stack-param" ) # args: name
+    args 1
+
+    get_stack_param_from_config "$2"
     ;;
 
   "www-prepare" ) # args: [git-ref]

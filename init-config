@@ -41,7 +41,7 @@ echo
 echo -n "Generating strong passwords for database access and administration"
 
 function pw () {
-  echo $(./manage make-rds-db-password)
+  echo $(./manage gen-rds-db-password)
 }
 
 p1="DBAdminPassword=\\\"$(pw)\\\""  && echo -n .

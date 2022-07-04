@@ -77,7 +77,7 @@ exports.handler = async function(event, context) {
     let [result] = await pg.unsafe(sql_get_info)
     log.push({
       info: {
-        geometry_type_oid: result.oid
+        geometry_type_objectid: result.oid
       }
     })
   } catch(e) {

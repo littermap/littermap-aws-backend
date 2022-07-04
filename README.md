@@ -80,19 +80,19 @@ Deploy the stack (ignore values you don't know for now):
 
 - `sam deploy -g` ([what this does](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-deploy.html))
 
-Take note of the values returned in the `Outputs` section. You will need them to configure the front-end client.
+Carefully note the values returned in the `Outputs` section. You will need them to configure the front-end client.
 
-Enable outside network access to the database private subnet:
+Authorize outside network access to the database (by default, access is restricted by [security group](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.RDSSecurityGroups.html#Overview.RDSSecurityGroups.VPCSec) [rules](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-rules.html)):
 
-- `./manage rds-db-authorize-ingress`
+- `./manage rds-db-authorize-remote-access`
 
 Perform first-time initialization on the littermap database:
 
 - `./manage rds-db-init`
 
-This will turn on PostGIS and create tables and access roles.
+This will initialize PostGIS and create the tables and access roles.
 
-Take note of the `geometry_type_oid` value in the output. It is necessary to provide it after every database initialization, so redeploy the stack and manually specify the `DBGeometryTypeOID` parameter now:
+Take note of the `geometry_type_objectid` value in the output. It is necessary to provide it after every database initialization, so redeploy the stack and manually specify the `DBGeometryTypeOID` parameter now:
 
 - `sam deploy -g`
 
@@ -243,23 +243,23 @@ The database can be completely reset by running:
 
 - `./manage rds-db-init`
 
-To connect to the database and use it directly, first look up the database user passwords:
+Connect to the database as an administrator (must have [postgresql](https://www.postgresql.org/download/) installed to have the `psql` utility):
 
-- `./manage list-functions | grep PASS | sort -u`
+- `./manage rds-db-connect`
 
-or
+To see that you're logged into the database system as the correct user:
 
-- `./manage list-stack-params | grep -i pass`
+- `select current_user;`
 
-Get the host address with:
+Show all tables in the `world` schema (as opposed to the `public` schema):
 
-- `./manage list-rds-db-endpoints`
+- `\dt world.*`
 
-Then connect to the database: (must have [postgresql](https://www.postgresql.org/download/) installed to have the `psql` utility):
+Show all locations stored in the locations table:
 
-- `psql -U {litteradmin|writer|reader} -h {host} -p {port} -d littermap -W`
+- `select * from world.locations;`
 
-Type `\help` to get started.
+Type `\help` to see available database commands.
 
 To save money while not using the database during development, it can temporarily [hibernated](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_StopInstance.html) with:
 
@@ -474,13 +474,16 @@ Database engine used to store user profiles, sessions, and event logs
 - [Authentication with Google Identity](https://developers.google.com/identity/protocols/oauth2/openid-connect)
 - [HTTP status codes](https://ddg.gg?q=http+status+codes+cheatsheet)
 - [Reserved words in DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ReservedWords.html)
+- [Bash manual](https://www.gnu.org/software/bash/manual/bash.html)
 
 #### Cheatsheets
 
 - [git (basic)](http://git-cheatsheet.com/)
 - [git (advanced)](https://dev.to/maxpou/git-cheat-sheet-advanced-3a17)
 - [jq](https://lzone.de/cheat-sheet/jq)
+- [grep](https://staff.washington.edu/weller/grep.html)
 - [bash](https://devhints.io/bash)
+- [bash (string manipulation)](https://unixutils.com/string-manipulation-with-bash/)
 - [PostgreSQL](https://www.postgresqltutorial.com/postgresql-cheat-sheet/)
 - [PostGIS](http://www.postgis.us/downloads/postgis21_cheatsheet.pdf) [pdf]
 - [aws cli](https://www.bluematador.com/learn/aws-cli-cheatsheet)
