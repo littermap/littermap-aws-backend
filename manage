@@ -11,6 +11,14 @@ else
   grep="grep"
 fi
 
+# Exit if a particular utility is not available
+check_installed() {
+  if ! command -v "$1" &>/dev/null; then
+    echo "Install $1: $2"
+    exit 1
+  fi
+}
+
 get_config() {
   # Read stack configuration parameter
   $grep -Po "(?<=$1 = \\\").*(?=\\\")" samconfig.toml
@@ -47,24 +55,22 @@ nargs=$#
 # Use AWS under an explicitly given profile
 aws="aws --profile $profile"
 
-check_installed() {
-  if ! command -v "$1" &>/dev/null; then
-    echo "Install $1: $2"
-    exit 1
-  fi
-}
-
+# If no arguments, list available commands and exit
 if [ $nargs -eq 0 ]; then
   echo "Available commands:"
   echo
 
   # Finds the commands by inspecting the code
+  items=$($grep '"[^"]\+" '$'\051' "$0")
 
-  list=$(grep '"[^"]\+" '$'\051' "$0")
-
+  # Set the input field separator to split only on new lines
   IFS=$'\n'
-  for i in $list; do
+
+  for i in $items; do
+    # Print the command name
     echo -ne "- \e[1;37m$(echo "$i" | cut -d\" -f 2)\e[0m"
+
+    # Print the arguments
     echo -e "\e[33m$(echo "$i" | awk -F '# args:' '{print $2}')\e[0m"
   done
 
@@ -384,11 +390,13 @@ case $1 in
 
     echo "Status: $status"
     echo
-    echo "This may take a while"
+    echo "This may take some time"
     echo
-    echo "Check the status with: $0 rds-db-status"
+    echo "Check the current status with: $0 rds-db-status"
     echo
     echo "AWS will stop the database cluster for seven days, after which is will automatically be restarted."
+    echo
+    echo "According to your system clock, 7 days from now will be: $(date -d "+7 days")"
     ;;
 
   "rds-db-wake" ) # args: [instance-id]
@@ -398,7 +406,7 @@ case $1 in
 
     echo "Status: $status"
     echo
-    echo "This may take a while"
+    echo "This may take some time"
     echo
     echo "Check the status with: $0 rds-db-status"
     ;;
@@ -566,8 +574,13 @@ case $1 in
 
   "lint" )
     check_installed jshint https://jshint.com/install/
+    check_installed shellcheck https://github.com/koalaman/shellcheck
 
+    # Lint js code
     find {functions,lib}/ -name '*.js' -print0 | xargs -0 jshint
+
+    # Lint bash code
+    shellcheck "$0"
     ;;
 
   "samconfig-get-stack-param" ) # args: name
@@ -631,7 +644,7 @@ case $1 in
     echo
     echo -n "Looking for S3 bucket that hosts the website..."
 
-    bucket=$($aws s3 ls | grep website | awk '{ print $3 }')
+    bucket=$($aws s3 ls | $grep website | awk '{ print $3 }')
 
     if [ "$bucket" = "" ]; then
       echo " not found."

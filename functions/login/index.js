@@ -1,8 +1,13 @@
 //
 // Handles:
 //
-// - Login redirect
-// - Logout
+// - /login/{service}
+//
+//   Redirects to a third party login flow which returns back to the /auth/{service} endpoint
+//
+// - /logout
+//
+//   Disassociates the logged in user account from the current session
 //
 
 const { dynamo } = require('/opt/nodejs/lib/dynamo')
@@ -10,6 +15,7 @@ const { ensureSession } = require('/opt/nodejs/lib/middleware/session')
 const { logEvent } = require('/opt/nodejs/lib/interface/eventlog')
 const { urlBase } = require('/opt/nodejs/lib/net')
 const { md5, base64 } = require('/opt/nodejs/lib/crypto')
+const { error } = require('/opt/nodejs/lib/error')
 const { done } = require('/opt/nodejs/lib/endpoint')
 
 const sessionsTable = process.env.SESSIONS_TABLE
@@ -88,7 +94,7 @@ exports.handler = ensureSession( async (event, context) => {
           delete event.session.who
         } catch(e) {
           state.status = 500
-          state.res = { error: "Failed to log the user out from the current session", reason: e.message }
+          state.res = error("Failed to log the user out from the current session", e.message)
         }
 
         if (!state.status) {
