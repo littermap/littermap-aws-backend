@@ -1,4 +1,4 @@
-Cloud native back-end for the [Litter Map](https://github.com/earthstewards/littermap) application.
+Cloud native back-end for the [Litter Map](https://github.com/littermap/littermap) application.
 
 ## Architecture
 
@@ -128,7 +128,7 @@ There is currently one native lambda:
 
 The code for including it in the deployment is currently commented out, so this section applies only if you are going to be intentionally testing it.
 
-If you have a [built package](https://github.com/earthstewards/littermap-aws-backend/discussions/#4) ready, just place `scale-image-experimental.zip` into `functions/scale-image-experimental/build/`. The `build/` directory may need to be created.
+If you have a [built package](https://github.com/littermap/littermap-aws-backend/discussions/#4) ready, just place `scale-image-experimental.zip` into `functions/scale-image-experimental/build/`. The `build/` directory may need to be created.
 
 #### Build it
 
@@ -403,6 +403,7 @@ Database engine used to store user profiles, sessions, and event logs
 - [Choosing the right DynamoDB partition key](https://aws.amazon.com/blogs/database/choosing-the-right-dynamodb-partition-key/)
 - [Best practices for designing and architecting with DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/best-practices.html)
 - [Single-table design pattern with DynamoDB](https://medium.com/till-engineering/single-table-design-aws-dynamodb-cffd230a371f)
+- [Advanced design patterns with DynamoDB](https://medium.com/@nabtechblog/advanced-design-patterns-for-amazon-dynamodb-354f97c96c2)
 - [The What, Why, and When of Single-Table Design with DynamoDB](https://www.alexdebrie.com/posts/dynamodb-single-table/)
 - [Letting items expire by setting the TTL attribute](https://aws.amazon.com/premiumsupport/knowledge-center/ttl-dynamodb/)
 - [Formatting an item's TTL attribute](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/time-to-live-ttl-before-you-start.html#time-to-live-ttl-before-you-start-formatting)
@@ -501,4 +502,4 @@ Database engine used to store user profiles, sessions, and event logs
 - [Identity and Access Management](https://console.aws.amazon.com/iam/)
 - [Configure your Google API credentials](https://console.cloud.google.com/apis/credentials)
 - [Manage apps that can access your Google account](https://myaccount.google.com/permissions)
-- [Markdown previewer](https://mdpreviewer.github.io/)
+- [Markdown editor](https://markdown-editor.github.io)

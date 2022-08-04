@@ -24,16 +24,16 @@ get_config() {
   $grep -Po "(?<=$1 = \\\").*(?=\\\")" samconfig.toml
 }
 
-get_stack_param_from_config_escaped() {
+get_stack_param_from_config_slashes_escaped() {
   params=$(get_config parameter_overrides)
 
-  # Find the specific parameter value (backslashes still escaped)
+  # Find the specific parameter value (backslashes remain escaped)
   echo "$params" | $grep -Po "(?<=$1=\\\\\\\").*?(?=\\\\\\\")"
 }
 
 get_stack_param_from_config() {
   # Unescape backslashes in the returned parameter value
-  get_stack_param_from_config_escaped "$1" | sed -e 's/\\\\/\\/g'
+  get_stack_param_from_config_slashes_escaped "$1" | sed -e 's/\\\\/\\/g'
 }
 
 profile=$(get_config profile)
@@ -473,7 +473,7 @@ case $1 in
     fi
 
     # Get the password for the role from the stack configuration file
-    password=$(get_stack_param_from_config_escaped "DB${role^}Password")
+    password=$(get_stack_param_from_config_slashes_escaped "DB${role^}Password")
 
     if [ -z "$password" ]; then
       echo "No password found for database user \"$user\" in samconfig.toml"
@@ -596,7 +596,7 @@ case $1 in
 
     rm -rf publish/
 
-    git clone git@github.com:earthstewards/littermap.git publish
+    git clone git@github.com:littermap/littermap.git publish
     cd publish
     echo
 
