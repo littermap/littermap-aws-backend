@@ -74,21 +74,31 @@ if [ $nargs -eq 0 ]; then
     echo -e "\e[33m$(echo "$i" | awk -F '# args:' '{print $2}')\e[0m"
   done
 
+  if ! command -v jq &>/dev/null; then
+    echo
+    echo "jq not found, please install it: https://stedolan.github.io/jq/download/"
+  fi
+
   exit
 fi
 
-# Check if required number of arguments have been passed
+# Set how many arguments are strictly required by a command
 args () {
   if [[ $((nargs-1)) -lt $1 ]]; then
     if [[ $1 -eq 1 ]]; then
-      thing=argument
+      what=argument
     else
-      thing=arguments
+      what=arguments
     fi
 
-    echo "This command requires $1 $thing"
+    echo "This command requires $1 $what"
     exit 1
   fi
+}
+
+# Base name for a custom lambda build environment docker image
+build_env_image_base_name () {
+  echo "lambda-$1-build-environment"
 }
 
 case $1 in
@@ -203,8 +213,13 @@ case $1 in
 
     set -e
 
+    # Determine the host CPU architecture
     host_arch=$(uname -m)
 
+    #
+    # Determine which CPU architecture we're building the docker build environment for and whether it's the same or
+    # different from the host CPU architecture.
+    #
     case $2 in
       "" )
         case "$host_arch" in
@@ -219,14 +234,13 @@ case $1 in
             ;;
 
           * )
-            echo "Your system architecture ($host_arch) is not supported on AWS Lambda. Choose one of the supported"
-            echo "architectures to build on."
+            echo "Your system architecture ($host_arch) is not supported on AWS Lambda. Choose one of the supported architectures."
 
             exit 1
             ;;
         esac
 
-        echo "Building for your native CPU architecture: 64-bit $arch"
+        echo "Building for your host CPU architecture: 64-bit $arch"
         echo
         ;;
 
@@ -235,7 +249,7 @@ case $1 in
         arch=arm
 
         if [ "$host_arch" != "arm64" ]; then
-          echo "Not building for your native architecture (building for 64-bit $arch)"
+          echo "Not building for your host architecture (building for 64-bit $arch)"
           echo
         fi
         ;;
@@ -245,7 +259,7 @@ case $1 in
         arch=x86
 
         if [ "$host_arch" != "x86_64" ]; then
-          echo "Not building for your native architecture (building for 64-bit $arch)"
+          echo "Not building for your host architecture (building for 64-bit $arch)"
           echo
         fi
         ;;
@@ -268,10 +282,14 @@ case $1 in
       buildx=buildx
     fi
 
-    old_image=$(docker images lambda-build-platform -q)
+    image_base_name=$(build_env_image_base_name cpp)
+
+    image_name="$image_base_name-$arch"
+
+    old_image=$(docker images "$image_name" -q)
 
     if [ -n "$old_image" ]; then
-      echo "Existing image found: $old_image"
+      echo "Existing image found: $old_image ($image_name)"
       echo
     fi
 
@@ -281,19 +299,34 @@ case $1 in
     # Build the Docker image that contains the build environment that is ready to build native Lambda functions
     docker $buildx build \
       --progress plain \
-      -t lambda-build-platform \
+      -t "$image_name" \
       --platform="$platform" \
       build-environments/cpp
 
-    # Give the image a second tag that labels its platform type
-    docker tag lambda-build-platform "lambda-build-platform-$arch"
+    # Look up current default build environment image
+    current_default_inspect=$(docker image inspect "$image_base_name" 2>/dev/null)
+
+    # If default wasn't set, then set this as default
+    if [ "$current_default_inspect" = '[]' ]; then
+      echo
+      echo "Setting this as the default build environment image"
+
+      docker tag "$image_name" "$image_base_name"
+    else
+      tags=$(echo "$current_default_inspect" | jq -r '.[].RepoTags[]')
+
+      echo
+      echo "Default build environment is still currently: $(echo "$tags" | grep "$image_base_name-" | cut -d: -f1 | tr '\n' ' ')"
+    fi
 
     if [ -n "$old_image" ]; then
+      # Check if the old image has any name aliases (relevant field is named "RepoTags")
       tags=$(docker image inspect "$old_image" | jq -r '.[].RepoTags[]')
 
+      # If the old image has no name aliases, it can be discarded
       if [ -z "$tags" ]; then
         echo
-        echo "== Deleting the previously existing Docker image"
+        echo "Deleting the previously existing Docker image: $old_image (used to be $image_name)"
         echo
 
         docker rmi "$old_image"
@@ -301,21 +334,96 @@ case $1 in
     fi
 
     echo
-    echo "== Done"
+    echo "Finished building: $image_name"
+    echo
+    echo "Image metadata:"
+    echo
+
+    docker image inspect $image_name | jq '.[].Config.Labels'
+    ;;
+
+  "set-default-cpp-build-environment" ) # args: [arch]
+    check_installed docker https://docs.docker.com/get-docker/
+
+    image_base_name=$(build_env_image_base_name cpp)
+
+    #
+    # If no architecture was specified or cannot set default, list available images; otherwise set default
+    #
+    if [ -z "$2" ]; then
+      current_default_inspect=$(docker image inspect "$image_base_name" 2>/dev/null)
+
+      if [ "$current_default_inspect" = '[]' ]; then
+        echo "Current default build environment isn't set."
+        echo
+      else
+        tags=$(echo "$current_default_inspect" | jq -r '.[].RepoTags[]')
+
+        # Default alias might point to more than one other name, so concatenate them into one line
+        echo "Current default: $(echo "$tags" | grep "$image_base_name-" | cut -d: -f1 | tr '\n' ' ')"
+        echo
+        echo "Image metadata:"
+        echo
+        echo $current_default_inspect | jq '.[].Config.Labels'
+        echo
+      fi
+
+      echo "Available build environment images:"
+      echo
+
+      docker images "$image_base_name-*"
+    else
+      image_name="$image_base_name-$2"
+
+      image_inspect=$(docker image inspect "$image_name" 2>/dev/null)
+
+      # Cannot set default if this specific build environment image doesn't exist
+      if [ "$image_inspect" = '[]' ]; then
+        echo "Cannot set default to: $image_name"
+        echo
+        echo "Available build environment images:"
+        echo
+
+        docker images "$image_base_name-*"
+
+        exit 1
+      fi
+
+      echo "Setting default build environment image: $image_name"
+
+      docker tag "$image_name" "$image_base_name"
+    fi
     ;;
 
   "build-cpp-function" ) # args: func-name [arch] [<debug|release>]
     args 1
 
+    check_installed docker https://docs.docker.com/get-docker/
+
     set -e
 
-    # You can pass "-" for 'arch' to use the default container image
+    # You can pass "-" for 'arch' to use the current default container image
     arch=${3:--}
 
-    image=lambda-build-platform
+    image_base_name=$(build_env_image_base_name cpp)
 
     if [ "$arch" != '-' ]; then
-      image="$image-$arch"
+      image="$image_base_name-$arch"
+    else
+      # Default build environment alias
+      image="$image_base_name"
+    fi
+
+    # If the build environment image does not exist, show available images and exit
+    if [ "$(docker image inspect "$image" 2>/dev/null)" = '[]' ]; then
+      echo "Build environment image not found: $image"
+      echo
+      echo "Available build environment images:"
+      echo
+
+      docker images "$image_base_name-*"
+
+      exit 1
     fi
 
     # Build a debug release by default
@@ -326,7 +434,12 @@ case $1 in
 
     cd "functions/$2"
 
-    echo "Building functions/$2/src/ inside the Docker container"
+    echo "Building function $2 insider a Docker container"
+    echo
+    echo "Function source: functions/$2/src/"
+    echo "Docker container image: $image"
+    echo
+    echo "-- Enter Docker"
     echo
 
     # The docker container finds the source in /mnt/src and produces the package in /mnt/out
@@ -336,6 +449,10 @@ case $1 in
       -v /tmp:/mnt/out \
       "$image" \
       /mnt/src/build.sh "$build_type"
+
+    echo
+    echo "-- Leave Docker"
+    echo
 
     mkdir -p build && cp -v "/tmp/$2.zip" build/
 

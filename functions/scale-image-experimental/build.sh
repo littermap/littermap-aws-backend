@@ -19,11 +19,15 @@ set -ex
 
 cp -rfv /mnt/src/src/* .
 
+# Prepare the makefile
 cmake . \
   -DCMAKE_BUILD_TYPE=$build_type \
   -DCMAKE_INSTALL_PREFIX=/opt/aws
 
+# Build the lambda
 make
+
+# Build the deployment package
 make aws-lambda-package-$package_name
 
 cp -v $package_name.zip /mnt/out

@@ -1,6 +1,9 @@
+#
+# AWS SAM CLI configuration file
+#
+# Ref: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-config.html
+#
 version = 0.1
-[default]
-[default.deploy]
 [default.deploy.parameters]
 stack_name = "littermap-backend"
 confirm_changeset = true

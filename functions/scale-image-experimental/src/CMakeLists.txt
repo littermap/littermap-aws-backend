@@ -3,7 +3,7 @@ set(CMAKE_CXX_STANDARD 11)
 project(scale-image-experimental LANGUAGES CXX) # <-- package name specified here
 
 find_package(aws-lambda-runtime)
-find_package(AWSSDK COMPONENTS s3)
+find_package(AWSSDK REQUIRED s3)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(vips REQUIRED IMPORTED_TARGET vips-cpp)
 
@@ -11,7 +11,9 @@ add_executable(${PROJECT_NAME} "main.cpp")
 
 target_link_libraries(
   ${PROJECT_NAME} PRIVATE
-  AWS::aws-lambda-runtime ${AWSSDK_LINK_LIBRARIES} "execinfo" PkgConfig::vips
+  AWS::aws-lambda-runtime ${AWSSDK_LINK_LIBRARIES}
+  PkgConfig::vips
+  "execinfo"
 )
 
 target_compile_options(

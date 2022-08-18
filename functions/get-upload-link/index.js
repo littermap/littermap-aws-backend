@@ -12,6 +12,9 @@ const { done } = require('/opt/nodejs/lib/endpoint')
 const mediaBucket = process.env.MEDIA_BUCKET
 const maxImageFileSize = process.env.MAX_UPLOAD_FILE_SIZE
 
+//
+// Tag the newly uploaded file as unverified, so it will be automatically deleted unless it becomes verified
+//
 const objectTags =
   '<Tagging><TagSet><Tag><Key>verified</Key><Value>false</Value></Tag></TagSet></Tagging>'
 

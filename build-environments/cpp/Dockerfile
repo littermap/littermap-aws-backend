@@ -1,54 +1,68 @@
 #
-# See:
+# Reference:
 #  - https://phoenixnap.com/kb/docker-image-size
-#  - https://ownyourbits.com/2017/06/20/c-build-environment-in-a-docker-container/
-#  - https://aws.amazon.com/blogs/opensource/demystifying-entrypoint-cmd-docker/
 #  - https://docs.aws.amazon.com/lambda/latest/dg/foundation-arch.html
-#  - https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/cmake-params.html
 #
 
-FROM alpine:3.14.3
+FROM alpine:3.16.2
+
+ENV AWS_SDK_VERSION=1.9.234
+ENV AWS_SDK_COMPONENTS="s3"
+ENV VIPS_VERSION=8.13.0
+
+LABEL aws-sdk="${AWS_SDK_VERSION} ${AWS_SDK_COMPONENTS}" vips="${VIPS_VERSION}"
 
 #
-# Install the AWS SDK and lambda runtime library into /opt/aws (pull directly from git)
+# Install the AWS SDK and lambda runtime library into /opt/aws
 #
-# Packages:
+# Alpine packages:
 #
-#  - zip is needed for the packager to package the lambda with its libraries after it's built
+#  - `zip` is needed for the AWS Lambda Runtime packager to package the lambda together with its shared libraries
+#    for deployment
 #
-#  - libexecinfo is necessary for backtrace support, which is missing in the `musl` C library
+#  - `libexecinfo-dev` is necessary for backtrace support, which is missing in the `musl` C library
 #    that Alpine linux ships with (and the lambda will link against)
 #
-#      See: https://github.com/awslabs/aws-lambda-cpp/issues/124
+#    See: https://github.com/awslabs/aws-lambda-cpp/issues/124
 #
+# CMake parameters:
+#
+# - https://github.com/aws/aws-sdk-cpp/blob/main/Docs/CMake_Parameters.md
 
-WORKDIR /download
+WORKDIR /tmp/work
 
 RUN apk add --progress --no-cache cmake make g++ git bash zip curl-dev zlib-dev libexecinfo-dev
 
+#
+# Install the AWS C++ SDK
+#
+
 RUN \
-  git clone --depth 1 --recurse-submodules https://github.com/aws/aws-sdk-cpp.git && \
+  git clone --branch $AWS_SDK_VERSION --depth 1 --recurse-submodules https://github.com/aws/aws-sdk-cpp.git && \
   cd aws-sdk-cpp && \
-  mkdir build && \
-  cd build && \
+  mkdir build && cd build && \
   cmake .. \
     -DCMAKE_BUILD_TYPE=Release \
-    -DBUILD_ONLY="s3" \
+    -DBUILD_ONLY=$AWS_SDK_COMPONENTS \
     -DBUILD_SHARED_LIBS=OFF \
     -DENABLE_TESTING=OFF \
     -DCUSTOM_MEMORY_MANAGEMENT=OFF \
-    -DENABLE_UNITY_BUILD=ON \
     -DCMAKE_INSTALL_PREFIX=/opt/aws && \
   make && make install && \
   cd ../../ && \
   rm -rf aws-sdk-cpp
 
+#
+# Install the AWS Lambda Runtime C++ library
+#
+
 RUN \
   git clone --depth 1 https://github.com/awslabs/aws-lambda-cpp.git && \
   cd aws-lambda-cpp && \
-  mkdir build && \
-  cd build && \
-  cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/aws && \
+  mkdir build && cd build && \
+  cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/opt/aws && \
   make && make install && \
   cd ../../ && \
   rm -rf aws-lambda-cpp
@@ -60,7 +74,7 @@ RUN \
 RUN apk add --progress --no-cache glib-dev expat-dev libpng-dev libwebp-dev
 
 RUN \
-  wget https://github.com/libvips/libvips/releases/download/v8.12.0/vips-8.12.0.tar.gz -O vips.tar.gz && \
+  wget https://github.com/libvips/libvips/releases/download/v$VIPS_VERSION/vips-$VIPS_VERSION.tar.gz -O vips.tar.gz && \
   tar xvzf vips.tar.gz && rm -v vips.tar.gz && \
   cd vips-* && \
   ./configure \
@@ -75,12 +89,4 @@ RUN \
     --without-libexif && \
   make && make install && \
   cd ../ && \
-  rm -rf vips
-
-RUN rm -rf /download
-
-#
-# Ready for building the lambda function and packaging it for release
-#
-
-WORKDIR /opt/aws/lambda
+  rm -rf vips-*

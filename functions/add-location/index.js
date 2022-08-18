@@ -139,7 +139,7 @@ exports.handler = ensureSession( async (event, context) => {
   if (!state.status) {
     //
     // Mark images as verified in the S3 store, so that they don't get automatically
-    // deleted in accordance with the automatic deletion policy
+    // deleted in accordance with the automatic deletion rule
     //
     let errors = []
 

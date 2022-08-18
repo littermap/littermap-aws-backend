@@ -31,6 +31,7 @@ Cloud native back-end for the [Litter Map](https://github.com/littermap/litterma
 - [awslogs](https://github.com/jorgebastida/awslogs) or [apilogs](https://github.com/rpgreen/apilogs) for viewing AWS logs
 - [s3cmd](https://github.com/s3tools/s3cmd) for interacting with S3
 - [httpie](https://httpie.io/docs) for making HTTP requests
+- [dry](https://github.com/moncho/dry) for interact with docker through a terminal user interface
 - [dive](https://github.com/wagoodman/dive) for inspecting docker images
 - [shellcheck](https://github.com/koalaman/shellcheck) for vetting shell code
 - [cookie editor](https://cookie-editor.cgagnier.ca/)
@@ -124,7 +125,7 @@ To provide a native binary lambda deployment package, there are two options:
 
 There is currently one native lambda:
 
-- `scale-image-experimental` (it is currently partially implemented)
+- `scale-image-experimental` (it is currently only partially implemented)
 
 The code for including it in the deployment is currently commented out, so this section applies only if you are going to be intentionally testing it.
 
@@ -132,20 +133,20 @@ If you have a [built package](https://github.com/littermap/littermap-aws-backend
 
 #### Build it
 
-Native lambdas can be built inside a specialized [container](https://docs.docker.com/get-started/#what-is-a-container) that contains the appropriate reproducible build environment that is isolated from your host system.
+Native lambdas can be built inside a specialized [container](https://docs.docker.com/get-started/#what-is-a-container) that has the appropriate reproducible build environment that is isolated from your host system.
 
 Make sure you've got Docker installed.
 
-The build environment can be built for one of two 64-bit CPU architectures: `x86` or `arm`. Since all deployed lambda functions are currently set to require the newer ARM CPU (due to its [cost effectiveness](https://aws.amazon.com/blogs/aws/aws-lambda-functions-powered-by-aws-graviton2-processor-run-your-functions-on-arm-and-get-up-to-34-better-price-performance/)), to build a package that will run when deployed, it must be built and packaged together with its native linked libraries in an appropriate environment.
+The build environment can be built for one of two 64-bit CPU architectures: `x86` or `arm`. Since all deployed lambda functions are [currently set](https://github.com/littermap/littermap-aws-backend/blob/0304048/template.yml#L22) to require the newer ARM CPU (due to its [cost effectiveness](https://aws.amazon.com/blogs/aws/aws-lambda-functions-powered-by-aws-graviton2-processor-run-your-functions-on-arm-and-get-up-to-34-better-price-performance/)), to build a package that will execute when deployed, it must be built and packaged together with its native linked libraries inside an `arm` build environment container.
 
-Currently, the only available build environment [prototype](https://conetix.com.au/blog/what-is-a-dockerfile/) is for building lambdas from C++ source code using the official [AWS C++ SDK](https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/getting-started.html) and [AWS C++ Runtime API](https://github.com/awslabs/aws-lambda-cpp) libraries. It also includes the [vips](https://github.com/libvips/libvips) high performance image processing library. Other build environments can be added for lambdas that are based on other technology stacks.
+Currently, the only available build environment [definition](https://conetix.com.au/blog/what-is-a-dockerfile/) is for building lambdas from C++ source code using the official [AWS C++ SDK](https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/getting-started.html) and [AWS C++ Runtime](https://github.com/awslabs/aws-lambda-cpp) libraries. It also includes the [libvips](https://github.com/libvips/libvips) high performance image processing library. Additional build environments can be developed in the future that will allow building lambdas based on other technology stacks.
 
-Either environment (or both) can be built with:
+Either build environment (or both) can be built with:
 
 - `./manage make-cpp-build-environment arm`
 - `./manage make-cpp-build-environment x86`
 
-If your host machine is one or the other and the architecture is not specified it will build for the one you've got.
+If your host machine is one or the other and the architecture is not explicitly specified it will by default build an environment for the same architecture as your host machine.
 
 Even if the deployed lambdas are specified to require an `arm` machine, an `x86` build environment can be used to either quickly check if your lambda compiles on an `x86` machine (if that's your native host architecture, that's much faster) or to deploy an `x86` lambda.
 

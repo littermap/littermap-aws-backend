@@ -13,6 +13,11 @@ AWSTemplateFormatVersion: 2010-09-09
 Transform: AWS::Serverless-2016-10-31
 Description: Global location submission and retrieval system
 
+#
+# Common attributes can be set for various resource types, however they are only somewhat overridable:
+#
+# https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-specification-template-anatomy-globals.html#sam-specification-template-anatomy-globals-overrideable
+#
 Globals:
   Function:
     Handler: index.handler
