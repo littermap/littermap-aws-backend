@@ -127,8 +127,8 @@ Resources:
         Variables:
           SESSIONS_TABLE: !Ref SessionsTable
           SESSION_LIFETIME_IN_DAYS: !Ref SessionLifetimeInDays
-          PGHOST: !GetAtt MainDB.Endpoint.Address
-          PGPORT: !GetAtt MainDB.Endpoint.Port
+          PGHOST: !If [DoRDS, !GetAtt MainDB.Endpoint.Address, ""]
+          PGPORT: !If [DoRDS, !GetAtt MainDB.Endpoint.Port, ""]
           PGDATABASE: !Ref DBName
           PGUSER: writer
           PGPASSWORD: !Ref DBWriterPassword
@@ -156,8 +156,8 @@ Resources:
         - !Ref PostgresLib
       Environment:
         Variables:
-          PGHOST: !GetAtt MainDB.Endpoint.Address
-          PGPORT: !GetAtt MainDB.Endpoint.Port
+          PGHOST: !If [DoRDS, !GetAtt MainDB.Endpoint.Address, ""]
+          PGPORT: !If [DoRDS, !GetAtt MainDB.Endpoint.Port, ""]
           PGDATABASE: !Ref DBName
           PGUSER: reader
           PGPASSWORD: !Ref DBReaderPassword
@@ -291,8 +291,8 @@ Resources:
         - !Ref PostgresLib
       Environment:
         Variables:
-          PGHOST: !GetAtt MainDB.Endpoint.Address
-          PGPORT: !GetAtt MainDB.Endpoint.Port
+          PGHOST: !If [DoRDS, !GetAtt MainDB.Endpoint.Address, ""]
+          PGPORT: !If [DoRDS, !GetAtt MainDB.Endpoint.Port, ""]
           PGDATABASE: !Ref DBName
           PGUSER: !Ref DBAdminUser
           PGPASSWORD: !Ref DBAdminPassword
@@ -312,8 +312,8 @@ Resources:
         - !Ref PostgresLib
       Environment:
         Variables:
-          PGHOST: !GetAtt MainDB.Endpoint.Address
-          PGPORT: !GetAtt MainDB.Endpoint.Port
+          PGHOST: !If [DoRDS, !GetAtt MainDB.Endpoint.Address, ""]
+          PGPORT: !If [DoRDS, !GetAtt MainDB.Endpoint.Port, ""]
           PGDATABASE: !Ref DBName
           DB_ADMIN: !Ref DBAdminUser
           DB_ADMIN_PASSWORD: !Ref DBAdminPassword
@@ -467,6 +467,7 @@ Resources:
 
   AllowDBAccessPolicy:
     Type: AWS::IAM::Policy
+    Condition: DoRDS
     Properties:
       PolicyName: allow-rds-connect
       PolicyDocument:
@@ -595,6 +596,7 @@ Resources:
   # Main database that stores the world
   MainDB:
     Type: AWS::RDS::DBInstance
+    Condition: DoRDS
     Properties:
       DBInstanceIdentifier: !Ref DBName
       DBSnapshotIdentifier: !If [HasDBSnapshotIdentifier, !Ref DBSnapshotIdentifier, !Ref 'AWS::NoValue']
@@ -784,6 +786,10 @@ Parameters:
     Description: API stage
     Type: String
     Default: api
+  DoNotDeployRDS:
+    Description: Do not deploy RDS
+    Type: Number
+    Default: 0
   DBInstanceClass:
     Description: Database instance class
     Type: String
@@ -893,6 +899,8 @@ Parameters:
     Default: 1
 
 Conditions:
+  NoRDS: !Equals [!Ref DoNotDeployRDS, 1]
+  DoRDS: !Not [!Condition NoRDS]
   HasNotDBSnapshotIdentifier: !Equals [!Ref DBSnapshotIdentifier, '']
   HasDBSnapshotIdentifier: !Not [!Condition HasNotDBSnapshotIdentifier]
   HasCDN: !Equals [!Ref EnableCDN, 1]
@@ -914,6 +922,7 @@ Metadata:
           - DBWriterPassword
           - DBReaderPassword
           - DBGeometryTypeObjectID
+          - DoNotDeployRDS
       -
         Label:
           default: User accounts
@@ -958,7 +967,10 @@ Metadata:
 Outputs:
   MainDBHost:
     Description: Database remote host
-    Value: !Sub "postgresql://${MainDB.Endpoint.Address}:${MainDB.Endpoint.Port}/${DBName}"
+    Value: !If [DoRDS,
+      !Sub "postgresql://${MainDB.Endpoint.Address}:${MainDB.Endpoint.Port}/${DBName}",
+      "-- RDS not deployed --"
+    ]
   MediaBucket:
     Description: S3 bucket that stores media content uploaded by users
     Value: !Sub "https://${MediaBucket.DomainName}"
