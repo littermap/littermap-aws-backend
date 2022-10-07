@@ -43,13 +43,6 @@ if [[ -z $profile ]]; then
   exit 1
 fi
 
-region=$(get_config region)
-
-if [[ -z $region ]]; then
-  echo "Please configure your AWS deployment region by running: aws configure"
-  exit 1
-fi
-
 nargs=$#
 
 # Use AWS under an explicitly given profile
@@ -125,6 +118,12 @@ case $1 in
     ;;
 
   "list-api-urls" )
+    region=$(get_config region)
+    if [[ -z $region ]]; then
+      echo "Please configure your AWS deployment region by running: aws configure"
+      exit 1
+    fi
+
     for api in $($0 list-api-ids); do
       for stage in $($0 list-api-stage-names "$api"); do
         echo "https://$api.execute-api.$region.amazonaws.com/$stage/"
