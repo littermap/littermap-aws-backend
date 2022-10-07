@@ -28,3 +28,6 @@ build-DBInitFunction:
 
 build-DBRunFunction:
 	cd db-run/ && cp *.js $(ARTIFACTS_DIR)/
+
+build-CloudfrontGeolocationFunction:
+	cd cloudfront-geolocation/ && cp *.js $(ARTIFACTS_DIR)/

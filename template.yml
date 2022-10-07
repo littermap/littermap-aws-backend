@@ -202,6 +202,24 @@ Resources:
     Metadata:
       BuildMethod: makefile
 
+  CloudfrontGeolocationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cloudfront-geolocation
+      Description: Look up privileged information
+      Role: !GetAtt CloudfrontGeolocationFunctionRole.Arn
+      Layers:
+        - !Ref CommonLib
+      Events:
+        GetProfileInfo:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref API
+            Path: /mylocation
+            Method: GET
+    Metadata:
+      BuildMethod: makefile
+
   LoginFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -368,6 +386,21 @@ Resources:
               - sts:AssumeRole
 
   InfoFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+               - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+  CloudfrontGeolocationFunctionRole:
     Type: AWS::IAM::Role
     Properties:
       ManagedPolicyArns:
@@ -739,6 +772,8 @@ Resources:
               Headers:
                 # Specify headers that the back-end API needs to receive
                 - Referer
+                - CloudFront-Viewer-Latitude
+                - CloudFront-Viewer-Longitude
               QueryString: true
               Cookies:
                 Forward: all
