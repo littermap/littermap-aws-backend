@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+# MacOS by default has BSD grep, and brew installs GNU grep as ggrep
+if command -v ggrep &>/dev/null; then
+  grep="ggrep"
+else
+  grep="grep"
+fi
+
 if [ -e samconfig.toml ]; then
   echo The file samconfig.toml exists
   echo
@@ -8,7 +15,7 @@ if [ -e samconfig.toml ]; then
   exit 1
 fi
 
-profiles=$(cat ~/.aws/credentials | grep -Po '(?<=^\[).+(?=\]$)')
+profiles=$(cat ~/.aws/credentials | $grep -Po '(?<=^\[).+(?=\]$)')
 
 if [ ${#profiles} -eq 0 ]; then
   echo No AWS profiles defined in ~/.aws/credentials

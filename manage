@@ -5,7 +5,7 @@
 #
 
 # MacOS by default has BSD grep, and brew installs GNU grep as ggrep
-if command -v ggrep; then
+if command -v ggrep &>/dev/null; then
   grep="ggrep"
 else
   grep="grep"
