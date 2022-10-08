@@ -19,9 +19,14 @@ check_installed() {
   fi
 }
 
+# Return samconfig configuration parameter
 get_config() {
-  # Read stack configuration parameter
-  $grep -Po "(?<=$1 = \\\").*(?=\\\")" samconfig.toml
+  if [ -f samconfig.toml ]; then
+    # Read "sam deploy" configuration parameter
+    #
+    # FIXME: This should only read parameters defined in the correct section of the samconfig.toml file
+    $grep -Po "(?<=$1 = \\\").*(?=\\\")" samconfig.toml
+  fi
 }
 
 get_stack_param_from_config_slashes_escaped() {
@@ -38,15 +43,14 @@ get_stack_param_from_config() {
 
 profile=$(get_config profile)
 
-if [[ -z $profile ]]; then
-  echo "Please set your AWS profile for this deployment in samconfig.toml"
-  exit 1
+if [ -n "$profile" ]; then
+  # Use AWS with the profile name used to deploy the stack, if found in samconfig.toml
+  aws="aws --profile $profile"
+else
+  aws=aws
 fi
 
 nargs=$#
-
-# Use AWS under an explicitly given profile
-aws="aws --profile $profile"
 
 # If no arguments, list available commands and exit
 if [ $nargs -eq 0 ]; then
@@ -119,6 +123,7 @@ case $1 in
 
   "list-api-urls" )
     region=$(get_config region)
+
     if [[ -z $region ]]; then
       echo "Please configure your AWS deployment region by running: aws configure"
       exit 1
@@ -686,6 +691,10 @@ case $1 in
     else
       $aws service-quotas list-service-quotas --service-code "$service" | jq 
     fi
+    ;;
+
+  "whoami" )
+    $aws iam get-user | jq
     ;;
 
   "lint" )

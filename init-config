@@ -15,7 +15,7 @@ if [ -e samconfig.toml ]; then
   exit 1
 fi
 
-profiles=$(cat ~/.aws/credentials | $grep -Po '(?<=^\[).+(?=\]$)')
+profiles=$($grep -Po '(?<=^\[).+(?=\]$)' < ~/.aws/credentials)
 
 if [ ${#profiles} -eq 0 ]; then
   echo No AWS profiles defined in ~/.aws/credentials
@@ -32,30 +32,40 @@ echo
 echo Which AWS profile would you like to use for deployment?
 echo
 
-read -p "> " profile
+read -rp "> " profile
+
+if [ -z "$profile" ]; then
+  echo
+  echo Profile must be specified
+
+  exit 1
+fi
 
 echo
-echo Using profile: $profile
+echo Using profile: "$profile"
 echo
-echo Setting up initial configuration...
-echo
-
-cp -v .config-templates/* .
-
-echo profile = \"$profile\" >> samconfig.toml
-
+echo Creating initial configuration...
 echo
 echo -n "Generating strong passwords for database access and administration"
 
 function pw () {
-  echo $(./manage gen-rds-db-password)
+  ./manage gen-rds-db-password
 }
 
 p1="DBAdminPassword=\\\"$(pw)\\\""  && echo -n .
 p2="DBWriterPassword=\\\"$(pw)\\\"" && echo -n .
 p3="DBReaderPassword=\\\"$(pw)\\\"" && echo -n .
 
-echo parameter_overrides = \"$p1 $p2 $p3\" >> samconfig.toml
 echo \ done
+echo
+
+cp -v .config-templates/* .
+
+echo
+echo Writing initial configuration...
+
+echo profile = \""$profile"\" >> samconfig.toml
+echo parameter_overrides = \""$p1" "$p2" "$p3"\" >> samconfig.toml
+
 echo
 echo Created: samconfig.toml
