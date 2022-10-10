@@ -303,7 +303,7 @@ case $1 in
     # Build the Docker image that contains the build environment that is ready to build native Lambda functions
     docker $buildx build \
       --progress plain \
-      -t "$image_name" \
+      --tag "$image_name" \
       --platform="$platform" \
       build-environments/cpp
 
@@ -319,8 +319,16 @@ case $1 in
     else
       tags=$(echo "$current_default_inspect" | jq -r '.[].RepoTags[]')
 
+      # See if the default points to a still tagged build environment image
+      current_default=$(echo "$tags" | grep "$image_base_name-" | cut -d: -f1 | tr '\n' ' ')
+
+      # If the default no longer points to a tagged image, show the image id instead
+      if [ -z "$current_default" ]; then
+        current_default=$(echo "$current_default_inspect" | jq -r '.[].Id' | cut -d: -f2)
+      fi
+
       echo
-      echo "Default build environment is still currently: $(echo "$tags" | grep "$image_base_name-" | cut -d: -f1 | tr '\n' ' ')"
+      echo "Default build environment is still currently: $current_default"
     fi
 
     if [ -n "$old_image" ]; then
@@ -333,7 +341,7 @@ case $1 in
         echo "Deleting the previously existing Docker image: $old_image (used to be $image_name)"
         echo
 
-        docker rmi "$old_image"
+        docker rmi "$old_image" || true # Don't crash if image can't be deleted
       fi
     fi
 
@@ -343,7 +351,7 @@ case $1 in
     echo "Image metadata:"
     echo
 
-    docker image inspect $image_name | jq '.[].Config.Labels'
+    docker image inspect "$image_name" | jq '.[].Config.Labels'
     ;;
 
   "set-default-cpp-build-environment" ) # args: [arch]
@@ -368,7 +376,7 @@ case $1 in
         echo
         echo "Image metadata:"
         echo
-        echo $current_default_inspect | jq '.[].Config.Labels'
+        echo "$current_default_inspect" | jq '.[].Config.Labels'
         echo
       fi
 
@@ -430,8 +438,8 @@ case $1 in
       exit 1
     fi
 
-    # Build a debug release by default
-    build_type=${4:-debug}
+    # Build a release release by default
+    build_type=${4:-release}
 
     # Capitalize the build type
     build_type=${build_type^}
@@ -460,8 +468,10 @@ case $1 in
 
     mkdir -p build && cp -v "/tmp/$2.zip" build/
 
+    package_size=$(du -sh build/"$2".zip | cut -f1)
+
     echo
-    echo "The package is ready: functions/$2/build/$2.zip"
+    echo "The package is ready: functions/$2/build/$2.zip (size: $package_size)"
     ;;
 
   "rds-db-action" ) # args: action [instance-id]

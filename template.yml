@@ -24,7 +24,7 @@ Globals:
     Runtime: nodejs14.x
     CodeUri: functions
     Architectures:
-      - arm64 # Choose the ARM processor (lower cost)
+      - arm64 # Choose the ARM processor (cost effective)
 
 Resources:
   API:
@@ -80,25 +80,26 @@ Resources:
           Properties:
             ApiId: !Ref API
 
-  # ScaleImageExperimentalFunction:
-  #   Type: AWS::Serverless::Function
-  #   Properties:
-  #     FunctionName: scale-image-experimental
-  #     Description: Add a scaled version of an image to the media bucket (experimental)
-  #     CodeUri: functions/scale-image-experimental/build/scale-image-experimental.zip
-  #     Handler: scale-image-experimental # The main executable inside the zip package
-  #     Runtime: provided.al2 # Amazon Linux 2 runtime is required for ARM binaries
-  #     Role: !GetAtt ScaleImageFunctionRole.Arn
-  #     Environment:
-  #       Variables:
-  #         MEDIA_BUCKET: !Ref MediaBucket
-  #     Events:
-  #       ScaleImage:
-  #         Type: HttpApi
-  #         Properties:
-  #           ApiId: !Ref API
-  #           Path: /scale-image
-  #           Method: GET
+  ScaleImageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: scale-image
+      Description: Generate a scaled version of an image in the media store
+      CodeUri: functions/scale-image/build/scale-image.zip
+      Handler: scale-image # The name of the main executable file inside the zip package
+      Runtime: provided.al2 # Amazon Linux 2 runtime is required for ARM binaries
+      Role: !GetAtt ScaleImageFunctionRole.Arn
+      Environment:
+        Variables:
+          MEDIA_BUCKET: !Ref MediaBucket
+          # DEBUG_OUTPUT: 1 # Return debug info instead of actual image
+      Events:
+        ScaleImage:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref API
+            Path: /scale-image
+            Method: GET
 
   LogEventFunction:
     Type: AWS::Serverless::Function
@@ -589,8 +590,13 @@ Resources:
         Version: 2012-10-17
         Statement:
           - Action:
+              - s3:ListBucket # Without this, nonexistent keys return Access Denied
+            Resource: !Sub "arn:aws:s3:::${MediaBucket}"
+            Effect: Allow
+          - Action:
               - s3:GetObject
               - s3:PutObject
+              - s3:PutObjectAcl
             Resource: !Sub "arn:aws:s3:::${MediaBucket}/*"
             Effect: Allow
       Roles:
@@ -625,6 +631,7 @@ Resources:
       Roles:
         - Ref: GetUploadLinkFunctionRole
         - Ref: AddLocationFunctionRole
+        - Ref: ScaleImageFunctionRole
 
   # Main database that stores the world
   MainDB:
@@ -696,10 +703,22 @@ Resources:
         ReadCapacityUnits: !Ref EventLogReadCapacity
         WriteCapacityUnits: !Ref EventLogWriteCapacity
 
+  # S3 bucket that hosts the user uploaded media files
   MediaBucket:
     Type: AWS::S3::Bucket
     Properties:
       AccessControl: Private
+      WebsiteConfiguration:
+        IndexDocument: " " # The documentation claims this is optional, but the deployment will fail if it's empty
+        RoutingRules:
+          - RoutingRuleCondition:
+              HttpErrorCodeReturnedEquals: 403 # not 404
+              KeyPrefixEquals: media/
+            RedirectRule:
+              HostName: !Ref Hostname # Deploying with this field blank, the redirect will be to the raw bucket web URL
+              Protocol: https
+              ReplaceKeyPrefixWith: api/scale-image?key=
+              HttpRedirectCode: 302
       LifecycleConfiguration:
         Rules:
           # Schedule regular removal of unverified uploads
@@ -709,6 +728,13 @@ Resources:
             TagFilters:
               - Key: verified
                 Value: false
+          # Schedule removal of cached thumbnails
+          - Id: DeleteThumbnails
+            ExpirationInDays: 2 # TODO: Make this a configurable stack parameter
+            Status: Enabled
+            TagFilters:
+              - Key: temp
+                Value: ""
       CorsConfiguration:
         CorsRules:
           - AllowedHeaders:
@@ -718,8 +744,9 @@ Resources:
               - POST
               - HEAD
             AllowedOrigins:
-              - "*" # In production, should be domain name
+              - "*" # TODO: In production, should be domain name
 
+  # S3 bucket that hosts the front-end (single page application)
   WebsiteBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -743,9 +770,9 @@ Resources:
               HTTPSPort: 443
               OriginProtocolPolicy: https-only
           - Id: Media
-            DomainName: !GetAtt MediaBucket.RegionalDomainName
-            S3OriginConfig:
-              OriginAccessIdentity: "" # Specify this to restrict direct access to the S3 bucket
+            DomainName: !Sub ${MediaBucket}.s3-website-${AWS::Region}.amazonaws.com
+            CustomOriginConfig:
+              OriginProtocolPolicy: http-only # S3 "web" server only supports plain HTTP
             ConnectionAttempts: 2
             ConnectionTimeout: 2
           - Id: FrontendApplication
@@ -794,6 +821,7 @@ Resources:
               QueryString: false
               Cookies:
                 Forward: none
+            DefaultTTL: 0 # Disable caching by default (objects will have their own Cache-Control metadata)
             Compress: true
             ViewerProtocolPolicy: redirect-to-https
         DefaultCacheBehavior:
@@ -932,6 +960,10 @@ Parameters:
       - 0
       - 1
     Default: 1
+  Hostname:
+    Description: Web hostname (used for redirects; if using raw CDN domain, may need to deploy first, then fill this in and redeploy)
+    Type: String
+    Default: littermap.com
 
 Conditions:
   NoRDS: !Equals [!Ref DoNotDeployRDS, 1]
@@ -943,6 +975,12 @@ Conditions:
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
+      -
+        Label:
+          default: General
+        Parameters:
+          - Hostname
+          - HasCDN
       -
         Label:
           default: Main database

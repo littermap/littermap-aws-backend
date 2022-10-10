@@ -1,13 +1,20 @@
+#
+# Welcome to CMake: https://iamsorush.com/posts/cpp-cmake-essential/
+#
+
 cmake_minimum_required(VERSION 3.5)
 set(CMAKE_CXX_STANDARD 11)
-project(scale-image-experimental LANGUAGES CXX) # <-- package name specified here
+project(scale-image LANGUAGES CXX) # <-- package name specified here
 
-find_package(aws-lambda-runtime)
 find_package(AWSSDK REQUIRED s3)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(vips REQUIRED IMPORTED_TARGET vips-cpp)
+find_package(aws-lambda-runtime REQUIRED)
 
-add_executable(${PROJECT_NAME} "main.cpp")
+# Define BUILD macro in C++ code (passed as parameter to cmake)
+add_definitions(-DBUILD="${BUILD_ID}")
+
+add_executable(${PROJECT_NAME} "env.cpp" "handler.cpp" "main.cpp")
 
 target_link_libraries(
   ${PROJECT_NAME} PRIVATE

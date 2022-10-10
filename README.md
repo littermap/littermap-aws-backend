@@ -125,11 +125,9 @@ To provide a native binary lambda deployment package, there are two options:
 
 There is currently one native lambda:
 
-- `scale-image-experimental` (it is currently only partially implemented)
+- `scale-image` (it is currently still an early version)
 
-The code for including it in the deployment is currently commented out, so this section applies only if you are going to be intentionally testing it.
-
-If you have a [built package](https://github.com/littermap/littermap-aws-backend/discussions/#4) ready, just place `scale-image-experimental.zip` into `functions/scale-image-experimental/build/`. The `build/` directory may need to be created.
+If you have a [built package](https://github.com/littermap/littermap-aws-backend/discussions/#4) ready, just place `scale-image.zip` into `functions/scale-image/build/`. The `build/` directory may need to be created.
 
 #### Build it
 
@@ -137,11 +135,12 @@ Native lambdas can be built inside a specialized [container](https://docs.docker
 
 Make sure you've got Docker installed.
 
-The build environment can be built for one of two 64-bit CPU architectures: `x86` or `arm`. Since all deployed lambda functions are [currently set](https://github.com/littermap/littermap-aws-backend/blob/0304048/template.yml#L22) to require the newer ARM CPU (due to its [cost effectiveness](https://aws.amazon.com/blogs/aws/aws-lambda-functions-powered-by-aws-graviton2-processor-run-your-functions-on-arm-and-get-up-to-34-better-price-performance/)), to build a package that will execute when deployed, it must be built and packaged together with its native linked libraries inside an `arm` build environment container.
+The build environment can currently be built for one of two 64-bit CPU architectures: `x86` or `arm`. Since all deration of concerns
+ployed lambda functions are [set](https://github.com/littermap/littermap-aws-backend/blob/0304048/template.yml#L22) to require the newer ARM CPU (due to its [cost effectiveness](https://aws.amazon.com/blogs/aws/aws-lambda-functions-powered-by-aws-graviton2-processor-run-your-functions-on-arm-and-get-up-to-34-better-price-performance/)), to build a package that will execute when deployed, it must be built and packaged together with its native linked libraries inside an `arm` build environment container.
 
-Currently, the only available build environment [definition](https://conetix.com.au/blog/what-is-a-dockerfile/) is for building lambdas from C++ source code using the official [AWS C++ SDK](https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/getting-started.html) and [AWS C++ Runtime](https://github.com/awslabs/aws-lambda-cpp) libraries. It also includes the [libvips](https://github.com/libvips/libvips) high performance image processing library. Additional build environments can be developed in the future that will allow building lambdas based on other technology stacks.
+At this time, the only available build environment [definition](https://conetix.com.au/blog/what-is-a-dockerfile/) is for building lambdas from C++ source code using the official [AWS C++ SDK](https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/getting-started.html) and [AWS C++ Runtime](https://github.com/awslabs/aws-lambda-cpp) libraries. It also includes the [libvips](https://github.com/libvips/libvips) high performance image processing library. Additional build environments can be developed in the future that will allow building lambdas based on other technology stacks.
 
-Either build environment (or both) can be built with:
+Either of the build environments (or both) can be built with:
 
 - `./manage make-cpp-build-environment arm`
 - `./manage make-cpp-build-environment x86`
@@ -152,15 +151,15 @@ Even if the deployed lambdas are specified to require an `arm` machine, an `x86`
 
 If this isn't your host machine's native architecture, Docker will run it using [user space emulation](https://github.com/multiarch/qemu-user-static) and building the image may take an hour or longer. If it doesn't work out of the box, it may require having [qemu](https://www.qemu.org/) installed along with [binary format support](https://www.ecliptik.com/Cross-Building-and-Running-Multi-Arch-Docker-Images/#qemu-on-linux).
 
-Once you have one or both of these environments built, they should be visible with:
+Once you have one or both of these environments built, they should be listed with:
 
 - `docker images`
 
-Now, to build `scale-image-experimental` for the `arm` architecture:
+Now, to build `scale-image` for the `arm` architecture:
 
-- `./manage build-cpp-function scale-image-experimental arm`
+- `./manage build-cpp-function scale-image arm`
 
-If the build process completes successfully, it will produce a deployment-ready zip package at `functions/scale-image-experimental/build/scale-image-experimental.zip`.
+If the build process completes successfully, it will produce a deployment-ready zip package at `functions/scale-image/build/scale-image.zip`.
 
 ### Deploying the front-end
 
@@ -283,6 +282,10 @@ If that doesn't go smoothly, troubleshoot the issue or delete the stack in the [
 The general procedure for changeset deployment after making changes is:
 
 - `sam build && sam deploy`
+
+However, during development it can be much quicker to use [sam sync](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-sync.html). See:
+
+- `sam sync --help`
 
 For a better understanding, read:
 
