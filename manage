@@ -25,20 +25,20 @@ get_config() {
     # Read "sam deploy" configuration parameter
     #
     # FIXME: This should only read parameters defined in the correct section of the samconfig.toml file
-    $grep -Po "(?<=$1 = \\\").*(?=\\\")" samconfig.toml
+    $grep -Po "(?<=$1 = \\\").*(?=\\\")" samconfig.toml | head -1
   fi
 }
 
-get_stack_param_from_config_slashes_escaped() {
+get_stack_param_slashes_escaped() {
   params=$(get_config parameter_overrides)
 
   # Find the specific parameter value (backslashes remain escaped)
   echo "$params" | $grep -Po "(?<=$1=\\\\\\\").*?(?=\\\\\\\")"
 }
 
-get_stack_param_from_config() {
+get_stack_param() {
   # Unescape backslashes in the returned parameter value
-  get_stack_param_from_config_slashes_escaped "$1" | sed -e 's/\\\\/\\/g'
+  get_stack_param_slashes_escaped "$1" | sed -e 's/\\\\/\\/g'
 }
 
 profile=$(get_config profile)
@@ -591,20 +591,20 @@ case $1 in
     check_installed psql https://www.postgresql.org/download/
 
     # Database name (defined as a stack parameter)
-    dbname=$(get_stack_param_from_config DBName)
+    dbname=$(get_stack_param DBName)
 
     # Log in as admin by default
     role=${2:-admin}
 
     # The admin role has a configurable user name (so it can be different from just "admin")
     if [ "$role" = admin ]; then
-      user=$(get_stack_param_from_config DBAdminUser)
+      user=$(get_stack_param DBAdminUser)
     else
       user=$role
     fi
 
     # Get the password for the role from the stack configuration file
-    password=$(get_stack_param_from_config_slashes_escaped "DB${role^}Password")
+    password=$(get_stack_param_slashes_escaped "DB${role^}Password")
 
     if [ -z "$password" ]; then
       echo "No password found for database user \"$user\" in samconfig.toml"
@@ -692,6 +692,17 @@ case $1 in
     $0 gen-password | tr '/@"'"'" '\\#||' | sed 's/\\/\\\\/g'
     ;;
 
+  "delete-stack-artifacts" )
+    s3_bucket=$(get_config s3_bucket)
+
+    if [ -z "$s3_bucket" ]; then
+      echo "s3_bucket is not defined in samconfig.toml"
+      exit 1
+    fi
+
+    $aws s3 rm --recursive "s3://$s3_bucket/$(get_config stack_name)/"
+    ;;
+
   "check-service-quotas" ) # args: [service]
     service=$2
 
@@ -721,7 +732,7 @@ case $1 in
   "samconfig-get-stack-param" ) # args: name
     args 1
 
-    get_stack_param_from_config "$2"
+    get_stack_param "$2"
     ;;
 
   "www-prepare" ) # args: [git-ref]
