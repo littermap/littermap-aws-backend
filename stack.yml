@@ -39,7 +39,7 @@ Resources:
     Type: AWS::Serverless::LayerVersion
     Properties:
       LayerName: lib-common
-      ContentUri: lib/common
+      ContentUri: layers/common
       CompatibleRuntimes:
         - nodejs14.x
       RetentionPolicy: Delete
@@ -50,7 +50,7 @@ Resources:
     Type: AWS::Serverless::LayerVersion
     Properties:
       LayerName: lib-postgres
-      ContentUri: lib/postgres
+      ContentUri: layers/postgres
       CompatibleRuntimes:
         - nodejs14.x
       RetentionPolicy: Delete
