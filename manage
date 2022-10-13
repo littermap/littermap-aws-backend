@@ -79,6 +79,11 @@ if [ $nargs -eq 0 ]; then
   exit
 fi
 
+if [ ! -f "$(basename "$0")" ]; then
+  echo "Please run $0 from its own directory"
+  exit 1
+fi
+
 # Set how many arguments are strictly required by a command
 args () {
   if [[ $((nargs-1)) -lt $1 ]]; then
@@ -170,7 +175,7 @@ case $1 in
     $aws cloudformation describe-stacks --stack-name "${2:-$(get_config stack_name)}" | jq -r 'try(.Stacks[0].Outputs)'
     ;;
 
-  "function-run" ) # args: func-name, [...params]
+  "function-run" ) # args: func-name [...params]
     args 1
 
     name=$2
@@ -212,7 +217,7 @@ case $1 in
     fi
     ;;
 
-  "make-cpp-build-environment" ) # args: [<arm|x86>]
+  "make-cpp-build-environment" ) # args: [arch = arm|x86]
     check_installed docker https://docs.docker.com/get-docker/
 
     set -e
@@ -407,7 +412,7 @@ case $1 in
     fi
     ;;
 
-  "build-cpp-function" ) # args: func-name [arch] [<debug|release>]
+  "build-cpp-function" ) # args: func-name [arch] [build = debug|release]
     args 1
 
     check_installed docker https://docs.docker.com/get-docker/
@@ -554,7 +559,7 @@ case $1 in
     echo "Don't forget to run \`sam deploy -g\` and manually specify the DBGeometryTypeObjectID parameter"
     ;;
 
-  "rds-db-run" ) # args: query, [user]
+  "rds-db-run" ) # args: query [user]
     args 1
 
     # Disable filename expansion so that the SQL query will be accepted verbatim
@@ -587,7 +592,7 @@ case $1 in
     $0 function-run db-run --payload "fileb://$2"
     ;;
 
-  "rds-db-connect" ) # args: [role = admin | reader | writer]
+  "rds-db-connect" ) # args: [role = admin|reader|writer]
     check_installed psql https://www.postgresql.org/download/
 
     # Database name (defined as a stack parameter)
@@ -640,7 +645,7 @@ case $1 in
     $aws ec2 revoke-security-group-ingress --group-id "$sg" --protocol tcp --port 5432 --cidr 0.0.0.0/0
     ;;
 
-  "dynamo-table-info" ) # args: table = sessions | users | event-log
+  "dynamo-table-info" ) # args: table = sessions|users|event-log
     args 1
 
     $aws dynamodb describe-table --table-name "$2" | jq
@@ -655,7 +660,7 @@ case $1 in
   "s3-delete-all" ) # args: bucket-name
     args 1
 
-    $aws s3 rm "s3://$2" --recursive
+    $aws s3 rm --recursive "s3://$2"
     ;;
 
   "event-log" ) # args: [utc-date]
@@ -738,9 +743,12 @@ case $1 in
   "www-prepare" ) # args: [git-ref]
     check_installed pnpm https://pnpm.io
 
-    ref=${2:-master}
+    if [ -d publish ]; then
+      echo "It looks like you have previously used this command. Please delete the publish/ directory and re-run this."
+      exit 1
+    fi
 
-    rm -rf publish/
+    ref=${2:-master}
 
     git clone git@github.com:littermap/littermap.git publish
     cd publish
