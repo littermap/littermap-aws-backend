@@ -12,19 +12,19 @@ Cloud native back-end for the [Litter Map](https://github.com/littermap/litterma
 
 ## Requirements
 
-- [aws-cli](https://aws.amazon.com/cli/) (for making AWS requests)
-- [sam-cli](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html) (1.29.0 or later) (for managing the serverless stack deployment)
-- [jq](https://stedolan.github.io/jq/) (1.5 or later) (for parsing JSON)
-- [gnu utilities](https://wikihub.berkeley.edu/display/drupal/Install+GNU+coreutils+and+other+CLI+utilities+on+MacOS)
-- [yarn](https://yarnpkg.com/) (for nodejs dependencies)
+- [aws-cli](https://aws.amazon.com/cli/) for making AWS requests
+- [sam-cli](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html) (latest) for managing the serverless stack deployment
+- [jq](https://stedolan.github.io/jq/) (1.5 or later) for parsing JSON
+- [gnu utilities](https://wikihub.berkeley.edu/display/drupal/Install+GNU+coreutils+and+other+CLI+utilities+on+MacOS) for bash, grep, etc.
+- [yarn](https://yarnpkg.com/) for nodejs dependencies
 - [jshint](https://github.com/jshint/jshint/blob/master/docs/install.md) for linting JavaScript
-- [docker](https://docs.docker.com/get-docker/) (newer is better) (for simulating the live infrastructure to test functions locally and to build native lambda releases)
+- [docker](https://docs.docker.com/get-docker/) (newer is better) for simulating the live infrastructure to test functions locally and to build native lambda releases
 
 ## Software involved
 
 - Lambda code is written in [node.js](https://nodejs.org/about/) and uses:
   - [postgres](https://github.com/porsager/postgres/) library for communication with the PostGIS database
-  - [dynamo-plus](https://github.com/Sleavely/dynamo-plus) wrapper for the [AWS DynamoDB DocumentClient](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/AccessAnalyzer.html) to access the DynamoDB tables
+  - [dynamo-plus](https://github.com/Sleavely/dynamo-plus) wrapper for the [AWS DynamoDB DocumentClient](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/DynamoDB/DocumentClient.html) to access the DynamoDB tables
 
 ## Useful utilities
 
@@ -34,7 +34,7 @@ Cloud native back-end for the [Litter Map](https://github.com/littermap/litterma
 - [dry](https://github.com/moncho/dry) for interact with docker through a terminal user interface
 - [dive](https://github.com/wagoodman/dive) for inspecting docker images
 - [shellcheck](https://github.com/koalaman/shellcheck) for vetting shell code
-- [cookie editor](https://cookie-editor.cgagnier.ca/)
+- [cookie editor](https://cookie-editor.cgagnier.ca/) for modifying cookies in the browser
 - [geocode](https://github.com/alexreisner/geocoder#command-line-interface) utility for address lookups from the command line
 
 ### Mobile apps
@@ -72,6 +72,8 @@ If you've already done that before (e.g., in the context of another deployment),
 If this is a fresh clone of this source code repository, prepare the configuration files by running:
 
 - `./init-config`
+
+Fetch the latest package of the image scaling lambda function as described in ["Provide a built package"](#provide-a-built-package), because it is a compiled binary that is not included with the source code.
 
 Prepare the stack template and function code for deployment:
 
@@ -117,7 +119,7 @@ If you forget the oid, you can retrieve it by running:
 <a name="binary-lambdas"></a>
 ### Building and deploying native binary lambda functions
 
-Each lambda function is packaged and deployed as a separate service, which means they do not all have to be implemented using the same technology stack. While a lambda function that is written entirely in one of the supported interpreted languages (JavaScript, Python, Ruby) requires a remote machine equipped with the appropriate runtime interpreter to execute it, a native lambda is designed to be run directly by the CPU. If the lambda function executable or any of its dependencies need to be provided as a binary, it will need to be built and packaged.
+Each lambda function is packaged and deployed as a separate service, which means they do not all have to be implemented using the same technology stack. While a lambda function that is written entirely in one of the [supported](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html) interpreted languages (JavaScript, Python, Ruby) requires a remote machine equipped with the appropriate runtime interpreter to execute it, a native lambda is designed to be run directly by the CPU. If the lambda function executable or any of its dependencies need to be provided as a binary, it will need to be built and packaged.
 
 To provide a native binary lambda deployment package, there are two options:
 
@@ -147,9 +149,9 @@ Either of the build environments (or both) can be built with:
 
 If your host machine is one or the other and the architecture is not explicitly specified it will by default build an environment for the same architecture as your host machine.
 
-Even if the deployed lambdas are specified to require an `arm` machine, an `x86` build environment can be used to either quickly check if your lambda compiles on an `x86` machine (if that's your native host architecture, that's much faster) or to deploy an `x86` lambda.
+Even if the deployed lambdas are specified to require an `arm` machine, an `x86` build environment may come in handy for iterating during development if you are developing on an `x86` machine because the native build process is much faster.
 
-If this isn't your host machine's native architecture, Docker will run it using [user space emulation](https://github.com/multiarch/qemu-user-static) and building the image may take an hour or longer. If it doesn't work out of the box, it may require having [qemu](https://www.qemu.org/) installed along with [binary format support](https://www.ecliptik.com/Cross-Building-and-Running-Multi-Arch-Docker-Images/#qemu-on-linux).
+If the build environment isn't the same as your host machine's native architecture, Docker will run it using [user space emulation](https://github.com/multiarch/qemu-user-static) and building the image may take an hour or longer. If it doesn't work out of the box, it may require having [qemu](https://www.qemu.org/) installed along with [binary format support](https://www.ecliptik.com/Cross-Building-and-Running-Multi-Arch-Docker-Images/#qemu-on-linux).
 
 Once you have one or both of these environments built, they should be listed with:
 
@@ -165,9 +167,9 @@ If the build process completes successfully, it will produce a deployment-ready 
 
 The serverless stack includes S3 buckets for hosting the front-end and user uploaded media content. To deploy a version of the front-end:
 
-- `./manage www-prepare`
+- `./manage frontend-prepare`
 - Edit `publish/config.json` to configure it
-- `./manage www-publish`
+- `./manage frontend-publish`
 
 If you turned on `EnableCDN`, the front-end will now available through the CloudFront CDN endpoint.
 
@@ -175,19 +177,25 @@ If you turned on `EnableCDN`, the front-end will now available through the Cloud
 
 To deploy the latest version:
 
-- `./manage www-update`
-- `./manage www-publish`
+- `./manage frontend-update`
+- `./manage frontend-publish`
 
 To deploy a specific branch or commit:
 
-- `./manage www-update <branch-or-commit>`
-- `./manage www-publish`
+- `./manage frontend-update <branch-or-commit>`
+- `./manage frontend-publish`
+
+Don't forget to edit `publish/config.json` before publishing.
 
 ## Manual interaction with the service
 
 In the following instructions, replace `$BASE` with the API URL that looks something like:
 
 - `https://2lrvdv0r03.execute-api.us-east-1.amazonaws.com/api/`
+
+Or with the CloudFront URL (if deployed with the CDN):
+
+- `https://d224hq3ddavbz.cloudfront.net/api/`
 
 The active URL for the deployed API can be viewed by running:
 
@@ -261,7 +269,7 @@ Show all locations stored in the locations table:
 
 Type `\help` to see available database commands.
 
-To save money while not using the database during development, it can temporarily [hibernated](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_StopInstance.html) with:
+To save money while not using the database during development, it can be temporarily [hibernated](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_StopInstance.html) with:
 
 - `./manage rds-db-hibernate`
 
@@ -340,7 +348,7 @@ Be aware that deleting or changing the properties of individual running resource
   - `sam build && sam deploy --no-confirm-changeset`
 
 - Check javascript code for errors with `./manage lint` before deploying changes to functions
-- Colorize JSON output with `jq`, for example: `./manage api-export | jq .`
+- Colorize JSON output with `jq`, for example: `aws iam get-user | jq`
 
 ## Knowledge resources
 
@@ -429,7 +437,6 @@ Database engine used to store user profiles, sessions, and event logs
 - [Correctly invoke HTTP from AWS Lambda without waiting](https://www.sensedeep.com/blog/posts/stories/lambda-fast-http.html)
 - [Sharing code between Lambda functions using Layers](https://www.jijutm.com/aws/refactored-a-lambda-heap-to-use-layers/)
 - [Writing Lambda functions in C++](https://aws.amazon.com/blogs/compute/introducing-the-c-lambda-runtime/)
-- [Enabling AVX2 advanced vector instructions in Lambda](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-avx2.html)
 - [Overview of user authentication with OAuth](https://www.nylas.com/blog/integrate-google-oauth)
 - [Implementing OAuth2 authentication](https://discordjs.guide/oauth2/#a-quick-example)
 - [Enable user file uploads with S3 POST signed URLs](https://advancedweb.hu/how-to-use-s3-post-signed-urls/)
@@ -440,6 +447,11 @@ Database engine used to store user profiles, sessions, and event logs
 
 - [Programming vs software engineering](https://swizec.com/blog/what-i-learned-from-software-engineering-at-google/)
 - [Software development and deployment best practices](https://12factor.net/)
+
+### Geospatial indexing articles
+
+- [Area and shape distortions in open-source discrete global grid systems](https://www.tandfonline.com/doi/pdf/10.1080/20964471.2022.2094926) [pdf]
+- [H3 as a gridding system](https://www.linkedin.com/pulse/can-h3-substitute-gridding-datasutram)
 
 ### Technical articles
 

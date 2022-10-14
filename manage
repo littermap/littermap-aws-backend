@@ -679,12 +679,13 @@ case $1 in
     ;;
 
   "api-export" ) # args: [api-id] [stage]
-    out=$(mktemp)
     api=${2:-$($0 list-api-ids | head -1)}
     stage=${3:-$($0 list-api-stage-names "$api" | head -1)}
+    out=$(mktemp)
     $aws apigatewayv2 export-api --api-id "$api" --stage-name "$stage" --specification OAS30 --output-type=YAML "$out"
 
     cat "$out"
+    rm "$out"
     ;;
 
   "gen-password" )
@@ -740,7 +741,7 @@ case $1 in
     get_stack_param "$2"
     ;;
 
-  "www-prepare" ) # args: [git-ref]
+  "frontend-prepare" ) # args: [git-ref]
     check_installed pnpm https://pnpm.io
 
     if [ -d publish ]; then
@@ -763,9 +764,9 @@ case $1 in
     echo Please configure the front-end in publish/ before publishing
     ;;
 
-  "www-update" ) # args: [git-ref]
+  "frontend-update" ) # args: [git-ref]
     if [ ! -d publish ]; then
-      echo First acquire a copy of the front-end repository by running: "$0 www-prepare"
+      echo First acquire a copy of the front-end repository by running: "$0" frontend-prepare
       exit 1
     fi
 
@@ -785,7 +786,12 @@ case $1 in
     echo "Check the configuration and then publish the website"
     ;;
 
-  "www-publish" )
+  "frontend-publish" )
+    if [ ! -d publish ]; then
+      echo First acquire a copy of the front-end repository by running: "$0" frontend-prepare
+      exit 1
+    fi
+
     cd publish
 
     if ! pnpm run build; then
@@ -800,7 +806,7 @@ case $1 in
 
     bucket=$($aws s3 ls | $grep website | awk '{ print $3 }')
 
-    if [ "$bucket" = "" ]; then
+    if [ -z "$bucket" ]; then
       echo " not found."
       echo
       echo "Could not publish the website because the hosting S3 bucket was not found"

@@ -4,8 +4,8 @@
 
 const { error } = require('./error')
 
-function check(state, name, kind, condition) {
-  if (!condition()) {
+function check(state, name, kind, test) {
+  if (!test()) {
     //
     // Set the error condition
     //
@@ -28,14 +28,16 @@ function check_isAlphaNumeric(state, name, val) {
 function check_isNumeric(state, name, val) {
   return check(
     state, name, 'numeric',
+    // Possible minus, then digits, optionally followed by a dot and possibly more digits
     () => /^-?\d+\.?\d*$/.test(val)
   )
 }
 
 function check_isPositiveInteger(state, name, val) {
   return check(
-    state, name, 'an integer',
-    () => /^\d+$/.test(val)
+    state, name, 'a positive integer',
+    // All digits and not all zeros
+    () => /^\d+$/.test(val) && !/^0+/.test(val)
   )
 }
 

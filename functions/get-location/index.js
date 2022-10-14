@@ -155,6 +155,8 @@ function normalizeLocation(location) {
     timestamp: location.created_at,
     comment: ageComment(location.created_at)
   }
+
+  return location
 }
 
 async function fetchAuthorDetails(location) {
