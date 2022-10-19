@@ -19,14 +19,17 @@
 
 const s3 = new (require('aws-sdk/clients/s3'))()
 
+const { dynamo } = require('/opt/nodejs/lib/dynamo')
+const h3 = require("h3-js")
 const { ensureSession } = require('/opt/nodejs/lib/middleware/session')
 const { check_isArray, check_isHex } = require('/opt/nodejs/lib/validation')
 const { logEvent } = require('/opt/nodejs/lib/interface/eventlog')
-const { pgInit } = require('/opt/nodejs/lib/postgres')
 const { error, errorStr } = require('/opt/nodejs/lib/error')
 const { done } = require('/opt/nodejs/lib/endpoint')
 
+
 const mediaBucket = process.env.MEDIA_BUCKET
+const locationsTable = process.env.LOCATIONS_TABLE
 const allowAnonymousSubmit = process.env.ALLOW_ANONYMOUS_SUBMIT
 
 exports.handler = ensureSession( async (event, context) => {
@@ -80,6 +83,30 @@ exports.handler = ensureSession( async (event, context) => {
   }
 
   if (!state.status) {
+    let h3index = h3.latLngToCell(lat,lon, 6)
+    try {
+      await dynamo.put({
+        TableName: locationsTable,
+        Item: {
+          pk: h3index,
+          sk: Math.random().toString(),
+          details: {
+            created_by: author,
+            lat,
+            lon,
+            description,
+            level,
+            images,
+          }
+        },
+      })
+    } catch(e) {
+      state.status = 500
+      state.res = errorStr(`Failed to write to dynamoDB`, e.message)
+    }
+  }
+/*
+
     const pg = pgInit()
 
     //
@@ -134,7 +161,7 @@ exports.handler = ensureSession( async (event, context) => {
         })
       }
     }
-  }
+*/
 
   if (!state.status) {
     //

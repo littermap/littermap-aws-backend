@@ -128,6 +128,7 @@ Resources:
         Variables:
           SESSIONS_TABLE: !Ref SessionsTable
           SESSION_LIFETIME_IN_DAYS: !Ref SessionLifetimeInDays
+          LOCATIONS_TABLE: !Ref LocationsTable
           PGHOST: !If [DoRDS, !GetAtt MainDB.Endpoint.Address, ""]
           PGPORT: !If [DoRDS, !GetAtt MainDB.Endpoint.Port, ""]
           PGDATABASE: !Ref DBName
@@ -515,6 +516,20 @@ Resources:
         - Ref: AddLocationFunctionRole
         - Ref: GetLocationFunctionRole
 
+  AllowLocationsAccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: allow-locations-access
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+            - dynamodb:PutItem
+            Resource: !GetAtt LocationsTable.Arn
+            Effect: Allow
+      Roles:
+        - Ref: AddLocationFunctionRole
+
   AllowUsersAccessPolicy:
     Type: AWS::IAM::Policy
     Properties:
@@ -650,6 +665,25 @@ Resources:
       BackupRetentionPeriod: 0 # no automated backups
       MasterUsername: !Ref DBAdminUser
       MasterUserPassword: !Ref DBAdminPassword
+
+  # Locations
+  LocationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: locations
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: !Ref LocationsTableReadCapacity
+        WriteCapacityUnits: !Ref LocationsTableWriteCapacity
 
   # Users
   UsersTable:
@@ -914,6 +948,14 @@ Parameters:
   GoogleClientSecret:
     Description: Client secret issued by Google for third-party sign-in authentication
     Type: String
+  LocationsTableReadCapacity:
+    Description: Locations table provisioned read capacity
+    Type: Number
+    Default: 1
+  LocationsTableWriteCapacity:
+    Description: Locations table provisioned write capacity
+    Type: Number
+    Default: 1
   UsersTableReadCapacity:
     Description: Users table provisioned read capacity
     Type: Number

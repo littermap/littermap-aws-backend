@@ -15,7 +15,7 @@ build-InfoFunction:
 	cd info/ && cp *.js $(ARTIFACTS_DIR)/
 
 build-AddLocationFunction:
-	cd add-location/ && cp *.js $(ARTIFACTS_DIR)/
+	cd add-location/ && yarn --pure-lockfile --prefer-offline && rm package.json && cp -a {*.js,node_modules} $(ARTIFACTS_DIR)/
 
 build-GetLocationFunction:
 	cd get-location/ && cp *.js $(ARTIFACTS_DIR)/

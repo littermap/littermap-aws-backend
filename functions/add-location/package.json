@@ -1,0 +1,7 @@
+{
+  "name": "add-location",
+  "private": true,
+  "dependencies": {
+    "h3-js": "4.0.1"
+  }
+}
