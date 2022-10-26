@@ -78,13 +78,13 @@ exports.handler = async function(event, context) {
               ST_DWithin(geo, ${pg.types.point({lat, lon})}, ${r})
           `
 
-          for (let i = 0; i < locations.length; i++ )
+          for (let i = 0; i < locations.length; i++)
             normalizeLocation(locations[i])
 
           let authorIds = []
 
           // Create a list of unique author ids from the set of locations
-          for (let i = 0; i < locations.length; i++ ) {
+          for (let i = 0; i < locations.length; i++) {
             let author = locations[i].created_by
 
             if (authorIds.indexOf(author) === -1)

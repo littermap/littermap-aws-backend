@@ -452,6 +452,8 @@ Database engine used to store user profiles, sessions, and event logs
 
 - [Area and shape distortions in open-source discrete global grid systems](https://www.tandfonline.com/doi/pdf/10.1080/20964471.2022.2094926) [pdf]
 - [H3 as a gridding system](https://www.linkedin.com/pulse/can-h3-substitute-gridding-datasutram)
+- [Bit format of an H3 hexagon/pentagon index](https://xxxuduo.github.io/2020/05/23/Uber-H3-Index.html)
+- [H3 grid visualization](https://observablehq.com/@fil/h3-oddities)
 
 ### Technical articles
 

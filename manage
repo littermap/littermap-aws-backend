@@ -11,12 +11,21 @@ else
   grep="grep"
 fi
 
-# Exit if a particular utility is not available
-check_installed() {
-  if ! command -v "$1" &>/dev/null; then
+# Check if a command exists in the shell session
+command_exists() {
+  command -v "$1" &>/dev/null
+}
+
+# Exit if a particular command is not available
+required_command() {
+  if ! command_exists "$1"; then
     echo "Install $1: $2"
     exit 1
   fi
+}
+
+jq_required() {
+  required_command jq https://stedolan.github.io/jq/
 }
 
 # Return samconfig configuration parameter
@@ -71,7 +80,7 @@ if [ $nargs -eq 0 ]; then
     echo -e "\e[33m$(echo "$i" | awk -F '# args:' '{print $2}')\e[0m"
   done
 
-  if ! command -v jq &>/dev/null; then
+  if ! command_exists jq; then
     echo
     echo "jq not found, please install it: https://stedolan.github.io/jq/download/"
   fi
@@ -103,16 +112,21 @@ build_env_image_base_name () {
   echo "lambda-$1-build-environment"
 }
 
+# Format and colorize JSON output with jq (if it's available)
+format_json=$(command_exists jq && echo jq || echo cat)
+
 case $1 in
   "list-functions" )
-    $aws lambda list-functions --output json | jq
+    $aws lambda list-functions --output json | $format_json
     ;;
 
   "list-apis" )
-    $aws apigatewayv2 get-apis --output json | jq
+    $aws apigatewayv2 get-apis --output json | $format_json
     ;;
 
   "list-api-ids" )
+    jq_required
+
     $0 list-apis | jq -r ".Items[].ApiId"
     ;;
 
@@ -122,6 +136,8 @@ case $1 in
     ;;
 
   "list-api-stage-names" ) # args: [api-id]
+    jq_required
+
     api=${2:-$($0 list-api-ids | head -1)}
     $0 list-api-stages "$api" | jq -r '.Items[] | .StageName'
     ;;
@@ -142,14 +158,18 @@ case $1 in
     ;;
 
   "list-rds-dbs" )
-    $aws rds describe-db-instances --output json | jq
+    $aws rds describe-db-instances --output json | $format_json
     ;;
 
   "list-rds-db-ids" )
+    jq_required
+
     $0 list-rds-dbs | jq -r "try(.DBInstances[].DBInstanceIdentifier)"
     ;;
 
   "list-rds-db-endpoints" )
+    jq_required
+
     $0 list-rds-dbs | jq -r "try(.DBInstances[].Endpoint)"
     ;;
 
@@ -164,19 +184,26 @@ case $1 in
     ;;
 
   "list-stacks" )
+    jq_required
+
     $aws cloudformation describe-stacks --output json | jq -r '.Stacks[].StackName'
     ;;
 
   "list-stack-params" ) # args: [stack-name]
+    jq_required
+
     $aws cloudformation describe-stacks --stack-name "${2:-$(get_config stack_name)}" | jq -r 'try(.Stacks[0].Parameters[]) | "\(.ParameterKey)=\(.ParameterValue)"'
     ;;
 
   "list-stack-outputs" ) # args: [stack-name]
+    jq_required
+
     $aws cloudformation describe-stacks --stack-name "${2:-$(get_config stack_name)}" | jq -r 'try(.Stacks[0].Outputs)'
     ;;
 
   "function-run" ) # args: func-name [...params]
     args 1
+    jq_required
 
     name=$2
     shift 2
@@ -204,6 +231,7 @@ case $1 in
 
   "function-logs" ) # args: func-name
     args 1
+    jq_required
 
     logstreams=$($aws logs describe-log-streams --log-group-name "/aws/lambda/$2" --query 'logStreams[*].logStreamName' | jq -r '.[-1]')
 
@@ -218,7 +246,8 @@ case $1 in
     ;;
 
   "make-cpp-build-environment" ) # args: [arch = arm|x86]
-    check_installed docker https://docs.docker.com/get-docker/
+    required_command docker https://docs.docker.com/get-docker/
+    jq_required
 
     set -e
 
@@ -360,7 +389,8 @@ case $1 in
     ;;
 
   "set-default-cpp-build-environment" ) # args: [arch]
-    check_installed docker https://docs.docker.com/get-docker/
+    required_command docker https://docs.docker.com/get-docker/
+    jq_required
 
     image_base_name=$(build_env_image_base_name cpp)
 
@@ -415,7 +445,7 @@ case $1 in
   "build-cpp-function" ) # args: func-name [arch] [build = debug|release]
     args 1
 
-    check_installed docker https://docs.docker.com/get-docker/
+    required_command docker https://docs.docker.com/get-docker/
 
     set -e
 
@@ -510,6 +540,8 @@ case $1 in
     ;;
 
   "rds-db-status" ) # args: [instance-id]
+    jq_required
+
     if [ -n "$2" ]; then
       id="--db-instance-identifier $2"
     fi
@@ -520,6 +552,8 @@ case $1 in
     ;;
 
   "rds-db-hibernate" ) # args: [instance-id]
+    jq_required
+
     set -eo pipefail
 
     status="$($0 rds-db-action stop-db-instance "$2" | jq -r '.DBInstance.DBInstanceStatus')"
@@ -536,6 +570,8 @@ case $1 in
     ;;
 
   "rds-db-wake" ) # args: [instance-id]
+    jq_required
+
     set -eo pipefail
 
     status="$($0 rds-db-action start-db-instance "$2" | jq -r '.DBInstance.DBInstanceStatus')"
@@ -575,7 +611,7 @@ case $1 in
 
     echo "Invoking query function with parameters:"
     echo
-    echo "$json" | jq
+    echo "$json" | $format_json
     echo
 
     $0 function-run db-run --payload "$json"
@@ -583,6 +619,7 @@ case $1 in
 
   "rds-db-run-file" ) # args: query-file
     args 1
+    jq_required
 
     echo "Invoking query function with parameters:"
     echo
@@ -593,7 +630,8 @@ case $1 in
     ;;
 
   "rds-db-connect" ) # args: [role = admin|reader|writer]
-    check_installed psql https://www.postgresql.org/download/
+    required_command psql https://www.postgresql.org/download/
+    jq_required
 
     # Database name (defined as a stack parameter)
     dbname=$(get_stack_param DBName)
@@ -628,6 +666,8 @@ case $1 in
     ;;
 
   "rds-db-get-security-group" )
+    jq_required
+
     $aws rds describe-db-instances | jq -r ".DBInstances[].VpcSecurityGroups[].VpcSecurityGroupId"
     ;;
 
@@ -648,13 +688,13 @@ case $1 in
   "dynamo-table-info" ) # args: table = sessions|users|event-log
     args 1
 
-    $aws dynamodb describe-table --table-name "$2" | jq
+    $aws dynamodb describe-table --table-name "$2" | $format_json
     ;;
 
   "s3-list-object-tags" ) # args: bucket-name object-key
     args 2
 
-    $aws s3api get-object-tagging --bucket "$2" --key "$3" | jq
+    $aws s3api get-object-tagging --bucket "$2" --key "$3" | $format_json
     ;;
 
   "s3-delete-all" ) # args: bucket-name
@@ -664,6 +704,8 @@ case $1 in
     ;;
 
   "event-log" ) # args: [utc-date]
+    jq_required
+
     # Convert today or given UTC date to epoch time
     date=$(date --date="${2:-$(date --utc +"%Y-%m-%d")}" --utc +%s)
 
@@ -710,26 +752,26 @@ case $1 in
     ;;
 
   "check-service-quotas" ) # args: [service]
-    service=$2
+    if [ -z "$2" ]; then
+      jq_required
 
-    if [ -z "$service" ]; then
-      # List services with service quotas
+      # List services for which service quota information can be queried
       $aws service-quotas list-services | jq -r ".Services[].ServiceCode"
     else
-      $aws service-quotas list-service-quotas --service-code "$service" | jq 
+      $aws service-quotas list-service-quotas --service-code "$2" | $format_json
     fi
     ;;
 
   "whoami" )
-    $aws iam get-user | jq
+    $aws iam get-user | $format_json
     ;;
 
   "lint" )
-    check_installed jshint https://jshint.com/install/
-    check_installed shellcheck https://github.com/koalaman/shellcheck
+    required_command jshint https://jshint.com/install/
+    required_command shellcheck https://github.com/koalaman/shellcheck
 
     # Lint js code
-    find {functions,lib}/ -name '*.js' -print0 | xargs -0 jshint
+    find {functions,layers}/ -name '*.js' -print0 | xargs -0 jshint
 
     # Lint bash code
     shellcheck "$0"
@@ -742,7 +784,7 @@ case $1 in
     ;;
 
   "frontend-prepare" ) # args: [git-ref]
-    check_installed pnpm https://pnpm.io
+    required_command pnpm https://pnpm.io
 
     if [ -d publish ]; then
       echo "It looks like you have previously used this command. Please delete the publish/ directory and re-run this."
