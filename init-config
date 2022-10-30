@@ -15,34 +15,38 @@ if [ -e samconfig.toml ]; then
   exit 1
 fi
 
-profiles=$($grep -Po '(?<=^\[).+(?=\]$)' < ~/.aws/credentials)
+# Text highlighting escape sequences
+__hi="\e[33m"
+__endhi="\e[0m"
+
+profiles=$([ -e ~/.aws/credentials ] && $grep -Po '(?<=^\[).+(?=\]$)' < ~/.aws/credentials)
 
 if [ ${#profiles} -eq 0 ]; then
   echo No AWS profiles defined in ~/.aws/credentials
   echo
-  echo Please first configure your profile with \`aws configure\`
-
-  exit 1
-fi
-
-echo Your configured AWS profiles:
-echo
-echo "$profiles"
-echo
-echo Which AWS profile would you like to use for deployment?
-echo
-
-read -rp "> " profile
-
-if [ -z "$profile" ]; then
+  echo -e "${__hi}If you configure your AWS profile manually by running \`aws configure\`, the profile used for deployment"
+  echo -e "can then be manually added to the samconfig.toml file under [default.deploy.parameters]$__endhi"
+else
+  echo Your configured AWS profiles:
   echo
-  echo Profile must be specified
+  echo "$profiles"
+  echo
+  echo Which AWS profile would you like to use for deployment?
+  echo
 
-  exit 1
+  read -rp "> " profile
+
+  if [ -z "$profile" ]; then
+    echo
+    echo Profile must be specified
+
+    exit 1
+  fi
+
+  echo
+  echo Using profile: "$profile"
 fi
 
-echo
-echo Using profile: "$profile"
 echo
 echo Creating initial configuration...
 echo

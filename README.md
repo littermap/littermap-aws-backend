@@ -57,7 +57,7 @@ Using your root AWS account, create a [new user](https://console.aws.amazon.com/
 
 Select the created user on the [users](https://console.aws.amazon.com/iamv2/home#/users) page, and in the `Security credentials` tab choose `Create access key`. Select `Show` to see the secret access key. You will not have access to the key again using the web interface, so make sure to store it in a secure location. The [reference guide](https://docs.aws.amazon.com/general/latest/gr/aws-security-credentials.html) explains AWS security credentials and best practices in detail.
 
-With this information on hand, configure the aws-cli utility with the access key and secret key along with the desired [deployment region](https://aws.amazon.com/about-aws/global-infrastructure/regions_az/) by running:
+With this information on hand, configure your AWS credentials with the access key and secret key along with the desired [deployment region](https://aws.amazon.com/about-aws/global-infrastructure/regions_az/) by running:
 
 - `aws configure`
 
