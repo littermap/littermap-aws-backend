@@ -146,6 +146,27 @@ Resources:
     Metadata:
       BuildMethod: makefile
 
+  DanielFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: daniel
+      Description: Add own location to map
+      Role: !GetAtt DanielFunctionRole.Arn
+      Layers:
+        - !Ref CommonLib
+      Environment:
+        Variables:
+          MEDIA_BUCKET: !Ref MediaBucket
+      Events:
+        Daniel:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref API
+            Path: /daniel
+            Method: POST
+    Metadata:
+      BuildMethod: makefile
+
   GetLocationFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -357,6 +378,21 @@ Resources:
               - sts:AssumeRole
 
   AddLocationFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+               - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+  DanielFunctionRole:
     Type: AWS::IAM::Role
     Properties:
       ManagedPolicyArns:
