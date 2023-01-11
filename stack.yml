@@ -146,6 +146,27 @@ Resources:
     Metadata:
       BuildMethod: makefile
 
+  DanielFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: daniel
+      Description: Add own location to map
+      Role: !GetAtt DanielFunctionRole.Arn
+      Layers:
+        - !Ref CommonLib
+      Environment:
+        Variables:
+          MEDIA_BUCKET: !Ref MediaBucket
+      Events:
+        Daniel:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref API
+            Path: /daniel
+            Method: POST
+    Metadata:
+      BuildMethod: makefile
+
   GetLocationFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -371,6 +392,21 @@ Resources:
             Action:
               - sts:AssumeRole
 
+  DanielFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+               - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
   GetLocationFunctionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -581,6 +617,7 @@ Resources:
         - Ref: LoginFunctionRole
         - Ref: AuthFunctionRole
         - Ref: AddLocationFunctionRole
+        - Ref: DanielFunctionRole
 
   AllowGetPutMediaPolicy:
     Type: AWS::IAM::Policy
@@ -601,6 +638,7 @@ Resources:
             Effect: Allow
       Roles:
         - Ref: ScaleImageFunctionRole
+        - Ref: DanielFunctionRole
 
   AllowPutMediaPolicy:
     Type: AWS::IAM::Policy
@@ -616,6 +654,7 @@ Resources:
             Effect: Allow
       Roles:
         - Ref: GetUploadLinkFunctionRole
+        - Ref: DanielFunctionRole
 
   AllowTagMediaPolicy:
     Type: AWS::IAM::Policy
@@ -632,6 +671,7 @@ Resources:
         - Ref: GetUploadLinkFunctionRole
         - Ref: AddLocationFunctionRole
         - Ref: ScaleImageFunctionRole
+        - Ref: DanielFunctionRole
 
   # Main database that stores the world
   MainDB:
