@@ -17,6 +17,9 @@ build-InfoFunction:
 build-AddLocationFunction:
 	cd add-location/ && cp *.js $(ARTIFACTS_DIR)/
 
+build-DanielFunction:
+	cd daniel/ && cp *.js $(ARTIFACTS_DIR)/
+
 build-GetLocationFunction:
 	cd get-location/ && cp *.js $(ARTIFACTS_DIR)/
 
