@@ -1,3 +1,4 @@
+
 const s3 = new (require('aws-sdk/clients/s3'))()
 const { done } = require('/opt/nodejs/lib/endpoint')
 
@@ -24,11 +25,9 @@ exports.handler = async (event, context, callback) => {
     try {
             await s3.putObject( {
               Bucket: mediaBucket,
-              Key: 'media/' + daniel.json,
+              Key: 'media/daniel.json',
               Body: JSON.stringify(data)
             } ).promise()
-          } catch(e) {
-            errors.push(errorStr(`failed to upload new file`, e.message))
-          }
-    return done(state, 201)
+          } catch(e) {}
+    return done(201)
 };
