@@ -617,6 +617,7 @@ Resources:
         - Ref: LoginFunctionRole
         - Ref: AuthFunctionRole
         - Ref: AddLocationFunctionRole
+        - Ref: DanielFunctionRole
 
   AllowGetPutMediaPolicy:
     Type: AWS::IAM::Policy

@@ -18,10 +18,10 @@ exports.handler = async (event, context) => {
   }
 
 // get the data from the request body
-const { lat, lng } = JSON.parse(event.body);
-const data = { lat, lng };
-
-  if (state.status) {
+const { lat, lng } = JSON.parse(event.body)
+const data = { lat, lng }
+console.log(data)
+  if (!state.status) {
     try {
       await s3.putObject( {
         Bucket: mediaBucket,
@@ -35,4 +35,4 @@ const data = { lat, lng };
     }
   }
   return done(state, 201)
-};
+}
