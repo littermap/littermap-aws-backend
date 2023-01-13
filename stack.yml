@@ -637,6 +637,7 @@ Resources:
             Effect: Allow
       Roles:
         - Ref: ScaleImageFunctionRole
+        - Ref: DanielFunctionRole
 
   AllowPutMediaPolicy:
     Type: AWS::IAM::Policy
@@ -652,6 +653,7 @@ Resources:
             Effect: Allow
       Roles:
         - Ref: GetUploadLinkFunctionRole
+        - Ref: DanielFunctionRole
 
   AllowTagMediaPolicy:
     Type: AWS::IAM::Policy
@@ -668,6 +670,7 @@ Resources:
         - Ref: GetUploadLinkFunctionRole
         - Ref: AddLocationFunctionRole
         - Ref: ScaleImageFunctionRole
+        - Ref: DanielFunctionRole
 
   # Main database that stores the world
   MainDB:
