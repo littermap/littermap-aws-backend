@@ -26,7 +26,8 @@ console.log(data)
       await s3.putObject( {
         Bucket: mediaBucket,
         Key: 'media/daniel.json',
-        Body: JSON.stringify(data)
+        Body: JSON.stringify(data),
+        ACL: 'public-read'
       } ).promise()
     }catch(e){
     // if not send a 422 response
