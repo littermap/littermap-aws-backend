@@ -2,22 +2,23 @@
 
 Humanity’s calling for the next hundred years is restoring natural beauty to Mother Earth. We believe that the planet is more of a being to be in communion with, rather than a resource to be extracted. To assist in this mission, we are providing a platform to help with global pollution and litter cleanup. This work belongs to the future of the human race, and therefore, we are using technology to provide community support for the cleanup effort. Its host of features is not just valuable to our users, but also to the planet itself.
 
-# Mission
+## Mission
 
 We are advancing humanity’s mission of waste and plastic-pollution cleanup for the protection of Nature from harm and to improve the lives of human and non-human inhabitants. We provide a hub for the mission of cleaning up the planet for many different individuals and organizations, and we aim to be the ultimate resource and center of the cleanup effort.
 
-# Background
+## Background
 
-We are a team of deeply devoted environmentalists who have a passion for restoring natural beauty. The planet is our common home, we borrow it from our children, and we inherit it from parents. Caring for our common home with all living things will speak into the future a life with less war, famine, destruction, climate disaster, hate, and division.
+We are a team of deeply devoted environmentalists who have a passion for restoring natural beauty. The planet is our common home, we borrow it from our children, and we inherit it from our parents. Caring for our common home with all living things will call forth into the future a life with less war, famine, destruction, climate disaster, hate, and division.
 
-# Community
+## Community
 
-Software development live sessions happen on discord https://discord.gg/JvEQMSQaYr.  
+Software development live sessions happen on our public [discord](https://discord.gg/JvEQMSQaYr) channel.
+
 Litter Map is also a registered nonprofit organization with open board meetings on discord.
 
 # Technical Documentation
 
-Cloud native back-end for the [Litter Map](https://github.com/littermap/littermap) application.
+This repository is the cloud native back-end for the [Litter Map](https://github.com/littermap/littermap) application.
 
 ## Architecture
 
@@ -525,6 +526,7 @@ Database engine used to store user profiles, sessions, and event logs
 - [PostgreSQL](https://www.postgresqltutorial.com/postgresql-cheat-sheet/)
 - [PostGIS](http://www.postgis.us/downloads/postgis21_cheatsheet.pdf) [pdf]
 - [aws cli](https://www.bluematador.com/learn/aws-cli-cheatsheet)
+- [Searching github issues and pull requests](https://docs.github.com/en/search-github/searching-on-github/searching-issues-and-pull-requests#search-by-a-user-thats-involved-in-an-issue-or-pull-request)
 
 ## Quick links
 
@@ -539,4 +541,5 @@ Database engine used to store user profiles, sessions, and event logs
 - [Identity and Access Management](https://console.aws.amazon.com/iam/)
 - [Configure your Google API credentials](https://console.cloud.google.com/apis/credentials)
 - [Manage apps that can access your Google account](https://myaccount.google.com/permissions)
+- [Official AWS questions and answers forum](https://repost.aws)
 - [Markdown editor](https://markdown-editor.github.io)

@@ -246,8 +246,9 @@ exports.handler = ensureSession( async (event, context) => {
           Key: {
             'id': userinfo.id
           },
-          UpdateExpression: 'SET #name=:name,email=:email,avatar=:avatar', // "name" is a reserved word
+          UpdateExpression: 'SET #name=:name,email=:email,avatar=:avatar',
           ExpressionAttributeNames: {
+            // "name" is a reserved keyword
             '#name': 'name'
           },
           ExpressionAttributeValues: {
@@ -281,7 +282,7 @@ exports.handler = ensureSession( async (event, context) => {
         Key: {
           'id': event.session.id
         },
-        UpdateExpression: 'SET who=:user', // "user" is a reserved word
+        UpdateExpression: 'SET who=:user', // "user" is a reserved keyword, so we use "who"
         ExpressionAttributeValues: {
           ':user': event.session.who
         }

@@ -1,4 +1,8 @@
-# This file describes the serverless stack that serves as the back-end for the Litter Map application.
+# This file describes the serverless infrastructure stack that serves as the back-end for the Litter Map application.
+#
+# Read about the concept of "infrastructure as code":
+#
+# https://learn.microsoft.com/en-us/devops/deliver/what-is-infrastructure-as-code
 #
 # Quick reference links:
 #
